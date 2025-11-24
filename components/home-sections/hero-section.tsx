@@ -58,13 +58,7 @@ export function HeroSection() {
   }, [userInteracted]);
 
   return (
-    <>
-      {/* ✅ Force Preloading */}
-      <head>
-        <link rel="preload" as="video" href={VIDEO_URL} type="video/mp4" />
-      </head>
-
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         {/* ✅ Instant Fallback Thumbnail */}
         {videoFailed && (
           <img
@@ -149,6 +143,5 @@ export function HeroSection() {
           </motion.div>
         </div>
       </section>
-    </>
   );
 }

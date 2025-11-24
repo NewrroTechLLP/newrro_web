@@ -148,6 +148,28 @@ const initialProducts: Product[] = [
     badge: "Top Rated - 10% Off",
 
   },
+  {
+    id: 6,
+    name: "RICK - Newric Controller",
+    category: "Advanced Controllers",
+    price: 25000,
+    image: "https://github.com/ayushanand2003/Newrro-production-build/blob/main/public/assets/product/nrc0.png?raw=true",
+    galleryImages: [
+      "https://github.com/ayushanand2003/Newrro-production-build/blob/main/public/assets/product/nrc1.png?raw=true",
+      "https://github.com/ayushanand2003/Newrro-production-build/blob/main/public/assets/product/nrc2.png?raw=true",
+      "https://github.com/ayushanand2003/Newrro-production-build/blob/main/public/assets/product/nrc3.png?raw=true",
+    ],
+    description:
+      "Newric AI & IoT compatible robotics controller. Features dual ESP32 and Raspberry Pi Pico controllers with high-power motor drivers for advanced robotics education and research.",
+    features: [
+      "Dual Controller (ESP32 + Pi Pico)",
+      "7V-24V 6A Motor Driver",
+      "12V 5000mAh Li-ion Battery",
+      "Wi-Fi & Bluetooth",
+      "Cloud Integration Support",
+    ],
+    badge: "New Product",
+  },
 ];
 
 export default function ProductsPage() {

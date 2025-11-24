@@ -102,25 +102,26 @@ export function ProductGrid({ products }: ProductGridProps) {
               <CardContent className="p-6 flex-grow">
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <CardTitle className="mb-2 group-hover:text-primary transition-colors duration-300">
+                    <CardTitle className="mb-2 text-black group-hover:text-primary transition-colors duration-300">
                       {product.name}
                     </CardTitle>
-                    <CardDescription>{product.category}</CardDescription>
+                    <CardDescription className="text-black">{product.category}</CardDescription>
                   </div>
                   <div className="flex flex-col items-end">
-                    {/* <span className="text-lg font-semibold">&#8377;{product.price.toFixed(2)}</span> */}
-                    {/* {product.badge === "Best Seller" && <span className="text-xs text-green-600">13% off</span>} */}
+                    <span className="text-lg font-bold bg-gradient-to-r from-[#df5bd3] to-[#7e5bf6] bg-clip-text text-transparent">
+                      &#8377;{product.price.toLocaleString('en-IN')}
+                    </span>
                   </div>
                 </div>
-                <p className="text-muted-foreground mb-4 line-clamp-2">{product.description}</p>
+                <p className="text-black mb-4 line-clamp-2">{product.description}</p>
                 <div className="flex flex-wrap gap-2">
                   {product.features.slice(0, 2).map((feature) => (
-                    <Badge key={feature} variant="secondary" className="bg-gray-100 text-gray-700 hover:bg-gray-200">
+                    <Badge key={feature} variant="secondary" className="bg-gray-100 text-black hover:bg-gray-200">
                       {feature}
                     </Badge>
                   ))}
                   {product.features.length > 2 && (
-                    <Badge variant="secondary" className="bg-gray-100 text-gray-700 hover:bg-gray-200">
+                    <Badge variant="secondary" className="bg-gray-100 text-black hover:bg-gray-200">
                       +{product.features.length - 2} more
                     </Badge>
                   )}

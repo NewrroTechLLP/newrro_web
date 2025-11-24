@@ -411,7 +411,7 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
                 <span>{product.category || "PREMIUM"}</span>
               </motion.div>
               <motion.h2
-                className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground"
+                className="text-2xl sm:text-3xl font-bold tracking-tight text-black"
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
               >
@@ -427,9 +427,9 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
                     <Star key={i} className="w-4 h-4 text-[#FFD700] fill-[#FFD700]" />
                   ))}
                 </div>
-                <span className="flex items-center gap-1 text-foreground">
+                <span className="flex items-center gap-1 text-black">
                   <span className="font-semibold">4.9</span>
-                  <span className="w-1 h-1 bg-foreground/30 rounded-full" />
+                  <span className="w-1 h-1 bg-black/30 rounded-full" />
                   <span>36 reviews</span>
                   <span className="flex items-center gap-1 text-green-500">
                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -442,23 +442,16 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                {/* <span className="text-2xl sm:text-3xl font-bold text-primary">
-                  &#8377;{discountPrice}
-                </span> */}
-                {/* <span className="text-sm sm:text-base line-through text-foreground/50">
-                  &#8377;{product.price.toFixed(2)}
+                <span className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#df5bd3] to-[#7e5bf6] bg-clip-text text-transparent">
+                  &#8377;{product.price.toLocaleString('en-IN')}
                 </span>
-                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-primary/10 text-primary">
-                  SAVE 10%
-                </span> */}
               </motion.div>
               <motion.p
-                className="text-sm sm:text-base leading-relaxed text-foreground"
+                className="text-sm sm:text-base leading-relaxed text-black"
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                {product.description} Experience crystal clear audio with our premium wireless headphones.
-                Featuring active noise cancellation, 30-hour battery life, and premium comfort for extended listening sessions.
+                {product.description}
               </motion.p>
             </div>
 
@@ -468,7 +461,7 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
               >
-                <h3 className="font-semibold text-sm sm:text-base text-foreground">
+                <h3 className="font-semibold text-sm sm:text-base text-black">
                   Choose Color
                 </h3>
                 <div className="flex gap-3 items-center">
@@ -492,7 +485,7 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
                     </motion.div>
                   ))}
                 </div>
-                <p className="text-xs font-medium text-foreground">Selected: {selectedColor}</p>
+                <p className="text-xs font-medium text-black">Selected: {selectedColor}</p>
               </motion.div>
 
               <motion.div
@@ -500,7 +493,7 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
               >
-                <h3 className="font-semibold text-sm sm:text-base text-foreground">Quantity</h3>
+                <h3 className="font-semibold text-sm sm:text-base text-black">Quantity</h3>
                 <div className="flex items-center border border-foreground/20 rounded-xl w-fit overflow-hidden shadow-sm">
                   <motion.button
                     className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-white/10 text-foreground"
@@ -510,7 +503,7 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
                   >
                     -
                   </motion.button>
-                  <span className="w-8 sm:w-12 h-8 sm:h-10 flex items-center justify-center font-medium text-foreground">
+                  <span className="w-8 sm:w-12 h-8 sm:h-10 flex items-center justify-center font-medium text-black">
                     {quantity}
                   </span>
                   <motion.button
@@ -551,7 +544,7 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
                         <div className="p-2 rounded-md bg-primary text-white">
                           <feature.icon className="w-5 h-5" />
                         </div>
-                        <div className="space-y-1 text-foreground text-sm">
+                        <div className="space-y-1 text-black text-sm">
                           <p className="font-semibold">{feature.title}</p>
                           <p>{feature.description}</p>
                         </div>

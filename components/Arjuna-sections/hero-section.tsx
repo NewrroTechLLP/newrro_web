@@ -64,9 +64,9 @@ export function HeroSection() {
         >
           <div className="flex flex-col overflow-hidden">
             <ContainerScroll>
-              {/* Card Component */}
+              {/* Card Component with YouTube video */}
               <Card
-                videoSrc="v1.mp4"
+                videoSrc="https://youtu.be/NC1jG-OVbaE"
                 responsiveScale={responsiveScale}
               />
             </ContainerScroll>
