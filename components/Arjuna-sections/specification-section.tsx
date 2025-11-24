@@ -70,7 +70,7 @@ const advancedKitSpecs = [
     icon: <Cpu className="w-12 h-12 text-[#4A3EBD]" />,
     title: "Jetson Orin Nano Super with ROS2",
     description: "Next-gen NVIDIA Jetson Orin Nano Super featuring 1024-core GPU and 8GB memory, delivering up to 67 TOPS AI performance with native ROS2 support for cutting-edge autonomous robotics.",
-    imageSrc: "/assets/specific_images/jetson.png",
+    imageSrc: "/assets/specific_images/orin.jpg",
     imageAlt: "Jetson Orin Nano Super"
   },
   {
@@ -112,7 +112,7 @@ const advancedKitSpecs = [
     icon: <Camera className="w-12 h-12 text-[#4A3EBD]" />,
     title: "3D Depth Camera OAK-D Lite",
     description: "Luxonis OAK-D Lite with autofocus and onboard AI processing, providing stereo depth perception up to 10m, spatial object detection, and neural network inference at the edge.",
-    imageSrc: "/assets/specific_images/cam.png",
+    imageSrc: "/assets/specific_images/oakdlite.png",
     imageAlt: "OAK-D Lite Camera"
   },
   {
