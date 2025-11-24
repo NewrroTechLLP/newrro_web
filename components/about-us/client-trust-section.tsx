@@ -2,14 +2,14 @@
 
 // Example client logos. Replace with actual paths to your logo images.
 const clients = [
-  { name: "JSSATEB", logo: "/logos/jssateb.png" },
-  { name: "NMIT", logo: "/logos/nmit.png" },
+  { name: "JSSATEB", logo: "/logos/jssate.png" },
+  { name: "NMIT", logo: "/logos/nitte.png" },
   { name: "BMSCE", logo: "/logos/bmsce.png" },
-  { name: "BIT", logo: "/logos/bit.png" },
+  { name: "BIT", logo: "/logos/BIT.webp" },
   { name: "Reva University", logo: "/logos/reva.png" },
   { name: "VSU", logo: "/logos/vsu.png" },
-  { name: "Sir MVIT", logo: "/logos/sirmvit.png" },
-  { name: "IEEE RAS", logo: "/logos/ieee.png" },
+  { name: "Sir MVIT", logo: "/logos/smvit.png" },
+  { name: "IEEE RAS", logo: "/logos/ieee.jpg" },
 ];
 
 export function ClientTrustSection() {
