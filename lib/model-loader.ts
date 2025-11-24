@@ -56,7 +56,8 @@ export class ModelLoader {
           const percentage = (progress.loaded / progress.total) * 100
           console.log('Loading progress:', percentage.toFixed(2), '%')
         },
-        (error: any) => { // Changed the error parameter type to 'any' to fix the linting issue
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (error: any) => {
           console.error('Error loading model:', error)
           reject(new Error(`Failed to load model: ${error.message}`))
         }

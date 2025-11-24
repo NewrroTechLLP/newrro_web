@@ -23,10 +23,10 @@ export function FinalCTA() {
       y: 0,
       transition: {
         duration: 0.5,
-        ease: "easeOut",
+        ease: [0.4, 0, 0.2, 1] as const,
       },
     },
-  };
+  } as const;
 
   return (
     <section className="relative overflow-hidden bg-slate-50 py-24 sm:py-32">

@@ -29,6 +29,7 @@ export function ModelCanvas({ className }: ModelCanvasProps) {
 
 // Separate scene component with hooks for zoom and reset functionality
 function Scene() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null)
   const { camera } = useThree()
   const originalCameraPosition = useRef<[number, number, number]>([5, 2, 5])

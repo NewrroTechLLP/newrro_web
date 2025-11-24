@@ -71,6 +71,7 @@ export const ImagesSlider = ({
     window.addEventListener("keydown", handleKeyDown);
 
     // autoplay
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let interval: any;
     if (autoplay) {
       interval = setInterval(() => {
@@ -94,7 +95,7 @@ export const ImagesSlider = ({
       opacity: 1,
       transition: {
         duration: 0.5,
-        ease: [0.645, 0.045, 0.355, 1.0],
+        ease: [0.645, 0.045, 0.355, 1.0] as const,
       },
     },
     leftExit: {
@@ -111,7 +112,7 @@ export const ImagesSlider = ({
         duration: 1,
       },
     },
-  };
+  } as const;
 
   const areImagesLoaded = loadedImages.length > 0;
 

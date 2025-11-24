@@ -1,3 +1,5 @@
+'use client';
+
 import { HeroSection } from "@/components/Arjuna-sections/hero-section";
 import { IntelligenceFeatures } from "@/components/Arjuna-sections/intelligence-features";
 import { SpecificationSection } from "@/components/Arjuna-sections/specification-section";
@@ -20,7 +22,7 @@ export default function Home() {
       <SpecificationSection />
       <ReviewsSectionArjuna />
       {/* <ProductTabs /> */}
-      
+
     </div>
   );
 }

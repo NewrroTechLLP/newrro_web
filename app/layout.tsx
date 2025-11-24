@@ -1,5 +1,5 @@
 import './globals.css';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Nunito, Source_Sans_3 } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Navbar } from '@/components/layout/navbar';
@@ -8,12 +8,17 @@ import { Footer } from '@/components/layout/footer';
 const nunito = Nunito({ subsets: ['latin'] });
 const sourceSans = Source_Sans_3({ subsets: ['latin'], variable: '--font-source-sans' });
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.newrro.in'),
   title: 'NEWRRO',
   description: 'Explore the latest in robotics technology at NEWRRO, a hub for innovation and revolutionary robotics research. Discover AI-powered robotics and cutting-edge tech.',
   keywords: 'Robotics, AI, Technology, Innovation, Robotics Lab, NEWRRO, Revolutionary Robotics, Robotics Research, AI-powered Robotics, Robotics Startup India',
   authors: [{ name: 'NEWRRO Team' }],
-  viewport: 'width=device-width, initial-scale=1',
   openGraph: {
     title: 'NEWRRO - Tech New Revolutionary Robotics Lab',
     description: 'Explore the latest in robotics technology at NEWRRO, a hub for innovation and revolutionary robotics research. Discover AI-powered robotics and cutting-edge tech.',
