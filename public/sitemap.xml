@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Homepage -->
+  <sitemap>
+    <loc>https://www.newrro.in/</loc>
+    <lastmod>2024-12-18</lastmod> <!-- Optional: specify the date when the page was last modified -->
+  </sitemap>
+
+  <!-- Arjuna Page -->
+  <sitemap>
+    <loc>https://www.newrro.in/Arjuna</loc>
+    <lastmod>2024-12-18</lastmod>
+  </sitemap>
+
+  <!-- Services Page -->
+  <sitemap>
+    <loc>https://www.newrro.in/services</loc>
+    <lastmod>2024-12-18</lastmod>
+  </sitemap>
+</sitemapindex>

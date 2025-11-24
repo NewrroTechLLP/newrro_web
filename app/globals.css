@@ -1,0 +1,171 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ✅ Custom root variables for Newrro color scheme */
+:root {
+  --foreground-rgb: 51, 51, 51; /* Dark gray (#333333) */
+  --background-rgb: 254, 255, 255; /* Light background (#feffff) */
+  --accent-pink-rgb: 223, 91, 211; /* Accent pink (#df5bd3) */
+  --accent-purple-rgb: 126, 91, 246; /* Accent purple (#7e5bf6) */
+
+  /* ✅ Updated chart colors */
+  --chart-1: 325 76% 61%; /* Pink */
+  --chart-2: 260 58% 39%; /* Purple */
+  --chart-3: 200 37% 24%; /* Dark Blue */
+  --chart-4: 43 74% 66%; /* Orange */
+  --chart-5: 27 87% 67%; /* Yellow */
+}
+
+/* ✅ Dark mode support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-rgb: 0, 0, 0;
+  }
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background-color: var(--background);
+}
+
+@layer base {
+  /* ✅ Root-level variables for theming */
+  :root {
+    --background: rgba(var(--background-rgb), 1);
+    --foreground: rgba(var(--foreground-rgb), 1);
+    --card: rgba(var(--background-rgb), 1);
+    --card-foreground: var(--foreground);
+    --popover: var(--card);
+    --popover-foreground: var(--foreground);
+    --primary: rgba(var(--accent-pink-rgb), 1);
+    --primary-foreground: rgba(var(--background-rgb), 1);
+    --secondary: rgba(var(--accent-purple-rgb), 1);
+    --secondary-foreground: rgba(var(--background-rgb), 1);
+    --muted: rgba(var(--background-rgb), 0.9);
+    --muted-foreground: rgba(var(--foreground-rgb), 0.5);
+    --accent: rgba(var(--accent-pink-rgb), 1);
+    --accent-foreground: rgba(var(--background-rgb), 1);
+    --destructive: 220, 60, 60;
+    --destructive-foreground: rgba(var(--background-rgb), 1);
+    --border: rgba(var(--foreground-rgb), 0.1);
+    --input: rgba(var(--foreground-rgb), 0.1);
+    --ring: rgba(var(--accent-pink-rgb), 0.5);
+    --radius: 0.5rem;
+  }
+
+  /* ✅ Dark mode adjustments */
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 325 76% 61%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 260 58% 39%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 325 76% 61%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+  }
+
+  /* ✅ Base styling */
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: 'Nunito', 'Source Sans Pro', sans-serif;
+  }
+}
+
+@layer utilities {
+  /* ✅ Animation classes */
+  .animate-glow {
+    animation: glow 4s ease-in-out infinite alternate;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-slide {
+    animation: slide 20s linear infinite;
+  }
+
+  .animate-scroll {
+    animation: scroll 40s linear infinite;
+  }
+
+  /* ✅ Glass effect */
+  .glass-effect {
+    background: rgba(var(--background-rgb), 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(var(--background-rgb), 0.2);
+  }
+
+  /* ✅ Keyframe animations */
+  @keyframes glow {
+    0% {
+      box-shadow: 0 0 20px rgba(var(--accent-pink-rgb), 0.3);
+    }
+    100% {
+      box-shadow: 0 0 40px rgba(var(--accent-purple-rgb), 0.6);
+    }
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-20px);
+    }
+  }
+
+  @keyframes slide {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-100%);
+    }
+  }
+
+  @keyframes scroll {
+    to {
+      transform: translate(calc(-50% - 2rem));
+    }
+  }
+
+  /* ✅ Text stroke effect */
+  .text-stroke {
+    -webkit-text-stroke: 1px rgba(var(--foreground-rgb), 0.3);
+  }
+
+  /* ✅ Hide scrollbar */
+  .no-visible-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .no-visible-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}

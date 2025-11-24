@@ -1,0 +1,9 @@
+# *
+User-agent: *
+Allow: /
+
+# Host
+Host: https://www.newrro.in
+
+# Sitemaps
+Sitemap: https://www.newrro.in/sitemap.xml
