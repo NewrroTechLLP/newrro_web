@@ -6,7 +6,7 @@ const footerLinks = {
     { name: "About Us", href: "/about" },
     { name: "Our Mission", href: "/mission" },
     { name: "Success Stories", href: "/success-stories" },
-    { name: "Contact", href: "/contact" },
+    { name: "Contact", href: "/Contact" },
   ],
   resources: [
     { name: "Courses", href: "/courses" },
