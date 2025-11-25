@@ -123,7 +123,7 @@ export default function RootLayout({
           `}
         </script>
       </head>
-      <body className={nunito.className}>
+      <body className={nunito.className} suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -131,7 +131,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <Navbar />
-          <main>{children}</main>
+          <main suppressHydrationWarning>{children}</main>
           <Footer />
         </ThemeProvider>
       </body>

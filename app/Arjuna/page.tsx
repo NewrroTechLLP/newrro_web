@@ -15,7 +15,7 @@ const ModelSection = dynamic(() => import('@/components/Arjuna-sections/model-se
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white" suppressHydrationWarning>
       <HeroSection />
       <ModelSection />
       <IntelligenceFeatures />

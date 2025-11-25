@@ -3,7 +3,7 @@
 'use client';
 
 import { motion } from "framer-motion";
-import { Navigation, Mic, QrCode, Globe, Eye, MapPin } from "lucide-react";
+import { Navigation, Mic, QrCode, Globe, Eye, MapPin, Map, Radio, Cpu, Brain, Layers, Camera, Plug, Target, Route } from "lucide-react";
 
 
 const intelligenceFeatures = [
@@ -36,7 +36,52 @@ const intelligenceFeatures = [
     icon: <MapPin className="w-12 h-12" />,
     title: "Autonomous Path Planning",
     description: "Smart pathfinding algorithms that optimize routes and avoid obstacles to reach destinations efficiently"
-  }
+  },
+  {
+    icon: <Map className="w-12 h-12" />,
+    title: "Precision LiDAR-Based Mapping",
+    description: "ARJUNA generates accurate 2D maps using 360° LiDAR scanning, enabling robust indoor navigation and obstacle detection."
+  },
+  {
+    icon: <Radio className="w-12 h-12" />,
+    title: "Sensor Fusion with EKF",
+    description: "IMU, wheel encoders, and LiDAR data are fused through EKF to deliver highly stable and drift-reduced odometry."
+  },
+  {
+    icon: <Cpu className="w-12 h-12" />,
+    title: "GPU-Powered AI Inference",
+    description: "Support for Jetson Nano / Xavier / Orin unlocks advanced neural network models for perception, recognition, and behavior prediction."
+  },
+  {
+    icon: <Brain className="w-12 h-12" />,
+    title: "AI-Enhanced Vision Algorithms",
+    description: "Integration with OpenCV + DNN allows ARJUNA to run lightweight deep learning models with high performance and low latency."
+  },
+  {
+    icon: <Layers className="w-12 h-12" />,
+    title: "Multi-Sensor 3D Perception",
+    description: "Depth data, IMU, and LiDAR work together to give ARJUNA a 3D understanding of its surroundings."
+  },
+  {
+    icon: <Camera className="w-12 h-12" />,
+    title: "OpenCV + DepthAI Integration",
+    description: "Unified vision pipeline combining OpenCV processing with OAK-D Lite's AI acceleration for modern perception tasks."
+  },
+  {
+    icon: <Plug className="w-12 h-12" />,
+    title: "Expandable AI & Robotics Platform",
+    description: "USB, I2C, UART, GPIO expansion allows custom AI sensors, extra cameras, or additional compute to be added as needed."
+  },
+  {
+    icon: <Target className="w-12 h-12" />,
+    title: "Visual Feedback Control",
+    description: "Camera-based visual servoing enables ARJUNA to react to markers, humans, and objects, creating intelligent closed-loop behaviors."
+  },
+  {
+    icon: <Route className="w-12 h-12" />,
+    title: "Visual SLAM for Indoor Autonomy",
+    description: "Using RGB-D and stereo input, ARJUNA performs Visual SLAM for real-time pose estimation, loop closure, and environment understanding."
+  },
 ];
 
 export function IntelligenceFeatures() {

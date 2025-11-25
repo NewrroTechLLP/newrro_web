@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { BentoGrid, BentoGridItem } from "../ui/bentogrid";
-import { Cpu, HardDrive, Boxes, Cloud, MapPin, Battery, LoaderPinwheel, Camera, TvMinimal, Gauge, Mic, Volume2, Zap } from "lucide-react";
+import { Cpu, HardDrive, Boxes, Cloud, MapPin, Microchip, Battery, LoaderPinwheel, Camera, TvMinimal, Gauge, Mic, Volume2, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
@@ -63,6 +63,13 @@ const basicKitSpecs = [
     imageSrc: "/assets/specific_images/disp.png",
     imageAlt: "7 inch Display"
   },
+  {
+    icon: <Battery className="w-12 h-12 text-[#4A3EBD]" />,
+    title: "10Ah Lithium-Ion Battery Pack",
+    description: "High-capacity 10,000mAh battery with integrated BMS ensures safe, stable power delivery for all robot components. Provides up to 3.5 hours of continuous operation even with LiDAR, depth camera, and all sensors active.",
+    imageSrc: "/assets/specific_images/battery.png",
+    imageAlt: "10Ah Lithium-Ion Battery Pack"
+  },
 ];
 
 const advancedKitSpecs = [
@@ -82,7 +89,7 @@ const advancedKitSpecs = [
   },
   {
     icon: <Cloud className="w-12 h-12 text-[#4A3EBD]" />,
-    title: "RPLIDAR C1 IO Rated",
+    title: "RPLIDAR C1 IP Rated",
     description: "Industrial-certified RPLIDAR C1 with enhanced durability, IP54 protection rating, and optimized firmware for reliable performance in harsh industrial and outdoor environments.",
     imageSrc: "/assets/specific_images/lidar.jpg",
     imageAlt: "RPLIDAR C1 IO rated"
@@ -134,6 +141,20 @@ const advancedKitSpecs = [
     title: "Microphones",
     description: "Dual digital MEMS microphones with noise cancellation and beamforming capabilities, enabling voice commands, sound localization, and ambient audio monitoring.",
     imageSrc: "/assets/specific_images/mic.png",
+    imageAlt: "Microphones"
+  },
+  {
+    icon: <Battery className="w-12 h-12 text-[#4A3EBD]" />,
+    title: "10Ah Lithium-Ion Battery Pack",
+    description: "High-capacity 10,000mAh battery with integrated BMS ensures safe, stable power delivery for all robot components. Provides up to 3.5 hours of continuous operation even with LiDAR, depth camera, and all sensors active.",
+    imageSrc: "/assets/specific_images/battery.png",
+    imageAlt: "10Ah Lithium-Ion Battery Pack"
+  },
+  {
+    icon: <Microchip className="w-12 h-12 text-[#4A3EBD]" />,
+    title: "Smart Actuator Controller Unit",
+    description: "The STServo Expansion Unit provides stable, regulated current and voltage to ensure smooth and reliable motor performance under all loads. Its Dylink serial interface supports daisy-chain motor connections, enabling synchronized control with minimal wiring.",
+    imageSrc: "/assets/specific_images/stserExp.webp",
     imageAlt: "Microphones"
   },
 ];
