@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, Variants, useScroll, useTransform } from 'framer-motion'; // Added useScroll/useTransform
 import { Target, Eye, FolderOpen, Code, ZapIcon, ChevronLeft, ChevronRight, CheckCircle, GraduationCap, Factory, User, Lightbulb, Cpu, Rocket, Wrench, Shield, TrendingUp, BookOpen } from 'lucide-react'; // Ensured all icons are imported
 
@@ -253,22 +253,27 @@ const GalleryModal: React.FC<GalleryModalProps> = ({ collaboration, onClose }) =
 // Hero Header (Added dynamic scroll effect)
 function StorytellingHero() {
     const ref = useRef(null);
+    const [mounted, setMounted] = useState(false);
     const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
     const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
 
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     return (
         <div ref={ref}
-            className="relative flex min-h-[55vh] items-center justify-center overflow-hidden py-20" 
-            style={{ 
-                backgroundImage: `linear-gradient(to right, ${COLOR_PINK}, ${COLOR_PURPLE})`, 
+            className="relative flex min-h-[55vh] items-center justify-center overflow-hidden py-20"
+            style={{
+                backgroundImage: `linear-gradient(to right, ${COLOR_PINK}, ${COLOR_PURPLE})`,
             } as React.CSSProperties}
         >
-            <motion.div 
-                className="absolute inset-0 z-0 bg-repeat opacity-10" 
-                style={{ 
+            <motion.div
+                className="absolute inset-0 z-0 bg-repeat opacity-10"
+                style={{
                     backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 80 80\' width=\'80\' height=\'80\'%3E%3Cpath fill=\'%23ffffff\' d=\'M0 0h40v40H0zM40 40h40v40H40z\'/%3E%3C/svg%3E")',
-                    y: backgroundY 
-                }} 
+                    y: mounted ? backgroundY : "0%"
+                }}
             />
 
             <div className="container relative z-10 mx-auto px-4 text-center">
