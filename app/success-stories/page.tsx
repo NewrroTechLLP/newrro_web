@@ -304,8 +304,13 @@ function StorytellingHero() {
 // Narrative Milestones Section (Improved Visual Flow)
 function StoryMilestones() {
     const ref = useRef(null);
+    const [mounted, setMounted] = useState(false);
     const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
     const scaleY = useTransform(scrollYProgress, [0.1, 0.9], [0, 1]);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const containerVariants: Variants = {
         hidden: {},
@@ -317,7 +322,7 @@ function StoryMilestones() {
             <div className="container mx-auto px-4 max-w-6xl relative z-10">
                 <div className="text-center mb-16">
                     <h2 className="text-4xl font-extrabold md:text-6xl mb-4">
-                        <span 
+                        <span
                             className="bg-clip-text text-transparent"
                             style={{ backgroundImage: `linear-gradient(to right, ${COLOR_PINK}, ${COLOR_PURPLE})` }}
                         >
@@ -331,15 +336,17 @@ function StoryMilestones() {
 
                 {/* Timeline Path */}
                 <div className="absolute top-0 bottom-0 left-1/2 w-1 bg-gray-200 hidden md:block" style={{ top: '150px', bottom: '150px' }} />
-                <motion.div
-                    className="absolute left-1/2 w-1 origin-top shadow-md hidden md:block"
-                    style={{ 
-                        top: '150px', 
-                        bottom: '150px', 
-                        scaleY,
-                        backgroundImage: `linear-gradient(to bottom, ${COLOR_PINK}, ${COLOR_PURPLE})`, 
-                    }}
-                />
+                {mounted && (
+                    <motion.div
+                        className="absolute left-1/2 w-1 origin-top shadow-md hidden md:block"
+                        style={{
+                            top: '150px',
+                            bottom: '150px',
+                            scaleY,
+                            backgroundImage: `linear-gradient(to bottom, ${COLOR_PINK}, ${COLOR_PURPLE})`,
+                        }}
+                    />
+                )}
 
                 <motion.div
                     variants={containerVariants}
