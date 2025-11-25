@@ -2,14 +2,16 @@
 
 // Example client logos. Replace with actual paths to your logo images.
 const clients = [
-  { name: "JSSATEB", logo: "/logos/jssate.png" },
-  { name: "NMIT", logo: "/logos/nitte.png" },
-  { name: "BMSCE", logo: "/logos/bmsce.png" },
-  { name: "BIT", logo: "/logos/BIT.webp" },
-  { name: "Reva University", logo: "/logos/reva.png" },
-  { name: "VSU", logo: "/logos/vsu.png" },
-  { name: "Sir MVIT", logo: "/logos/smvit.png" },
-  { name: "IEEE RAS", logo: "/logos/ieee.jpg" },
+  { name: "JSSATEB", logo: "/assets/logos/ihfc.webp" },
+  { name: "JSSATEB", logo: "/assets/logos/jssate.png" },
+  { name: "NMIT", logo: "/assets/logos/nitte.png" },
+  { name: "BMSCE", logo: "/assets/logos/bmsce.png" },
+  { name: "BIT", logo: "/assets/logos/BIT.webp" },
+  { name: "Reva University", logo: "/assets/logos/reva.png" },
+  { name: "VSU", logo: "/assets/logos/vsu.png" },
+  { name: "Sir MVIT", logo: "/assets/logos/smvit.png" },
+  { name: "IEEE RAS", logo: "/assets/logos/ieee.jpg" },
+  { name: "Amrita", logo: "/assets/logos/avvp.svg" },
 ];
 
 export function ClientTrustSection() {

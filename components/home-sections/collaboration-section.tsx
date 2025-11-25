@@ -10,7 +10,8 @@ interface Collaborator {
 }
 
 const collaborators: Collaborator[] = [
-  { name: "NMIT", logo: "/assets/logos/nitte png.png" },
+  { name: "NMIT", logo: "/assets/logos/nitte.png" },
+  { name: "IHFC", logo: "/assets/logos/ihfc.webp" },
   { name: "JSS", logo: "/assets/logos/jssate.png" },
   { name: "IEEE Bangalore", logo: "/assets/logos/Screenshot 2024-01-17 191858.png" },
   { name: "REVA", logo: "/assets/logos/reva.png" },
