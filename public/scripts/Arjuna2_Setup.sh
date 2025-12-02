@@ -355,9 +355,6 @@ log "ROS 2 source code downloaded"
 # ------------------------------------------------------------------------------
 show_progress "Installing ROS 2 Dependencies"
 
-log "Upgrading system packages..."
-sudo apt upgrade -y
-
 log "Initializing rosdep..."
 if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then
     sudo rosdep init
