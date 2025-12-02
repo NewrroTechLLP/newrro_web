@@ -227,22 +227,70 @@ show_progress "Installing Jetson Utilities"
 
 log "Installing jetson-stats (jtop)..."
 
-# Try system install first (recommended for jtop)
-if sudo -H pip3 install -U jetson-stats --break-system-packages 2>/dev/null; then
-    log "jtop installed via system pip"
-elif pip3 install --user -U jetson-stats 2>/dev/null; then
-    log "jtop installed via user pip"
+# Define installation methods in order of preference
+install_jtop() {
+    # Method 1: System pip with break-system-packages (recommended)
+    if sudo -H pip3 install -U jetson-stats --break-system-packages 2>/dev/null; then
+        log "✓ jtop installed via system pip (--break-system-packages)"
+        return 0
+    fi
+    
+    # Method 2: User pip
+    if pip3 install --user -U jetson-stats 2>/dev/null; then
+        log "✓ jtop installed via user pip"
+        return 0
+    fi
+    
+    # Method 3: System pip without cache
+    log "Trying system pip without cache..."
+    if sudo -H pip3 install --no-cache-dir -U jetson-stats --break-system-packages 2>&1 | tee -a "$LOG_FILE"; then
+        log "✓ jtop installed via system pip (no cache)"
+        return 0
+    fi
+    
+    # Method 4: User pip without cache
+    log "Trying user pip without cache..."
+    if pip3 install --user --no-cache-dir -U jetson-stats 2>&1 | tee -a "$LOG_FILE"; then
+        log "✓ jtop installed via user pip (no cache)"
+        return 0
+    fi
+    
+    # Method 5: Force install with verbose output
+    warn "Standard methods failed - forcing installation with verbose output..."
+    if sudo -H pip3 install --force-reinstall --no-deps -U jetson-stats --break-system-packages 2>&1 | tee -a "$LOG_FILE"; then
+        log "✓ jtop installed via forced reinstall"
+        return 0
+    fi
+    
+    # Method 6: Install from GitHub directly (backup)
+    warn "All pip methods failed - trying GitHub source..."
+    if sudo -H pip3 install git+https://github.com/rbonghi/jetson_stats.git --break-system-packages 2>&1 | tee -a "$LOG_FILE"; then
+        log "✓ jtop installed from GitHub source"
+        return 0
+    fi
+    
+    # All methods failed
+    err "All installation methods failed for jtop"
+    warn "You can install manually after reboot:"
+    warn "  sudo -H pip3 install -U jetson-stats --break-system-packages"
+    return 1
+}
+
+# Call the installation function
+if install_jtop; then
+    log "jetson-stats installation complete"
+    
+    # Verify (may fail until reboot)
+    if python3 -c "import jtop" 2>/dev/null; then
+        log "✓ jtop imported successfully"
+    else
+        warn "jtop installed but requires reboot to function properly"
+    fi
 else
-    warn "jtop installation failed - install manually after reboot"
-    warn "Run: sudo -H pip3 install -U jetson-stats"
+    warn "jtop installation incomplete - continuing with rest of setup"
 fi
 
-# Verify (may fail until reboot)
-if python3 -c "import jtop" 2>/dev/null; then
-    log "jtop imported successfully"
-else
-    warn "jtop installed but requires reboot to function"
-fi
+log "Step 5: Complete (jtop status logged above)"
 
 # ------------------------------------------------------------------------------
 # STEP 6: ADD ROS 2 APT REPOSITORY
