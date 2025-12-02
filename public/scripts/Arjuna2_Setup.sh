@@ -493,7 +493,7 @@ echo "##########################################################################
 
 
 # ------------------------------------------------------------------------------
-# STEP 11: GPU-ACCELERATED PYTHON LIBRARIES
+# STEP 10: GPU-ACCELERATED PYTHON LIBRARIES
 # ------------------------------------------------------------------------------
 show_progress "Installing GPU-Accelerated Python Libraries"
 
@@ -539,7 +539,7 @@ python3 -m pip install --user --no-cache-dir \
     simple-pid tqdm requests flask || warn "Some packages failed"
 
 # ------------------------------------------------------------------------------
-# STEP 12: ULTRALYTICS YOLOv8
+# STEP 11: ULTRALYTICS YOLOv8
 # ------------------------------------------------------------------------------
 show_progress "Installing Ultralytics YOLOv8"
 
@@ -557,7 +557,7 @@ for model in yolov8n.pt yolov8s.pt; do
 done
 
 # ------------------------------------------------------------------------------
-# STEP 13: ARJUNA WORKSPACE & SENSOR DRIVERS
+# STEP 12: ARJUNA WORKSPACE & SENSOR DRIVERS
 # ------------------------------------------------------------------------------
 show_progress "Setting Up Arjuna Workspace & Sensor Drivers"
 
@@ -602,7 +602,7 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# STEP 14: DEVELOPMENT TOOLS
+# STEP 13: DEVELOPMENT TOOLS
 # ------------------------------------------------------------------------------
 show_progress "Installing Development Tools"
 
@@ -619,7 +619,7 @@ if ! command -v code &>/dev/null; then
 fi
 
 # ------------------------------------------------------------------------------
-# STEP 15: SYSTEM CONFIGURATION & FINALIZATION
+# STEP 14: SYSTEM CONFIGURATION & FINALIZATION
 # ------------------------------------------------------------------------------
 show_progress "Finalizing System Configuration"
 
