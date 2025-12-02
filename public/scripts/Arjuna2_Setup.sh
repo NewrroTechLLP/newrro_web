@@ -151,6 +151,11 @@ sudo apt-get install -y --no-install-recommends \
     ccache openssh-server python3-dev pkg-config python3-pip \
     python3-venv ca-certificates can-utils i2c-tools
 
+# CRITICAL: Upgrade system NOW before installing NVIDIA stuff
+log "Upgrading all system packages (prevents later conflicts)..."
+sudo apt upgrade -y
+sudo apt autoremove -y
+
 # Upgrade pip
 python3 -m pip install --user --upgrade pip setuptools wheel
 
@@ -187,18 +192,9 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# STEP 4: DOCKER & NVIDIA CONTAINER TOOLKIT
+# STEP 4: NVIDIA CONTAINER TOOLKIT
 # ------------------------------------------------------------------------------
-show_progress "Installing Docker & NVIDIA Container Toolkit"
-
-if ! command -v docker &>/dev/null; then
-    log "Installing Docker..."
-    sudo apt-get install -y docker.io
-    sudo systemctl enable --now docker
-    sudo usermod -aG docker "${USER_NAME}"
-else
-    log "Docker already installed"
-fi
+show_progress "Installing NVIDIA Container Toolkit"
 
 if ! dpkg -l | grep -q nvidia-container-toolkit; then
     log "Installing NVIDIA Container Toolkit..."
@@ -210,20 +206,19 @@ if ! dpkg -l | grep -q nvidia-container-toolkit; then
         sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
     
     sudo apt-get update
-    sudo apt-get install -y nvidia-container-toolkit
+    
+    # Install with --allow-downgrades to prevent errors
+    sudo apt-get install -y --allow-downgrades nvidia-container-toolkit
     
     if command -v nvidia-ctk &>/dev/null; then
         sudo nvidia-ctk runtime configure --runtime=docker
         sudo systemctl restart docker
     fi
+    
+    log "NVIDIA Container Toolkit installed"
+else
+    log "NVIDIA Container Toolkit already present"
 fi
-
-if ! docker --version &>/dev/null; then
-    err "Docker installation failed"
-    exit 1
-fi
-
-log "Docker installation verified"
 
 # ------------------------------------------------------------------------------
 # STEP 5: JETSON UTILITIES
