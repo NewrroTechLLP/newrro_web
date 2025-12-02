@@ -231,17 +231,23 @@ log "Docker installation verified"
 show_progress "Installing Jetson Utilities"
 
 log "Installing jetson-stats (jtop)..."
-python3 -m pip install --user -U jetson-stats
 
-# Add Microsoft repository
-curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
-sudo install -o root -g root -m 644 microsoft.gpg /etc/apt/trusted.gpg.d/
-sudo sh -c 'echo "deb [arch=arm64] https://packages.microsoft.com/repos/edge stable main" > /etc/apt/sources.list.d/microsoft-edge.list'
-rm microsoft.gpg
+# Try system install first (recommended for jtop)
+if sudo -H pip3 install -U jetson-stats --break-system-packages 2>/dev/null; then
+    log "jtop installed via system pip"
+elif pip3 install --user -U jetson-stats 2>/dev/null; then
+    log "jtop installed via user pip"
+else
+    warn "jtop installation failed - install manually after reboot"
+    warn "Run: sudo -H pip3 install -U jetson-stats"
+fi
 
-# Install Edge
-sudo apt update
-sudo apt install -y microsoft-edge-stable
+# Verify (may fail until reboot)
+if python3 -c "import jtop" 2>/dev/null; then
+    log "jtop imported successfully"
+else
+    warn "jtop installed but requires reboot to function"
+fi
 
 # ------------------------------------------------------------------------------
 # STEP 6: ADD ROS 2 APT REPOSITORY
