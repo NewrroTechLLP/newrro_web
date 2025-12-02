@@ -153,8 +153,8 @@ sudo apt-get install -y --no-install-recommends \
 
 # CRITICAL: Upgrade system NOW before installing NVIDIA stuff
 log "Upgrading all system packages (prevents later conflicts)..."
-sudo apt upgrade -y
-sudo apt autoremove -y
+sudo apt upgrade -y --allow-downgrades
+sudo apt autoremove -y --allow-downgrades
 
 # Upgrade pip
 python3 -m pip install --user --upgrade pip setuptools wheel
