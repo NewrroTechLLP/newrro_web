@@ -362,34 +362,6 @@ else
     skip "ML dependencies already installed"
 fi
 
-# Check PyTorch
-if python3 -c "import torch" 2>/dev/null; then
-    TORCH_VERSION=$(python3 -c "import torch; print(torch.__version__)" 2>/dev/null)
-    skip "PyTorch already installed: ${TORCH_VERSION}"
-else
-    log "Installing PyTorch for Jetson..."
-    case "$JP_VERSION" in
-        36.*)
-            python3 -m pip install --user --no-cache-dir \
-                https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.3.0-cp310-cp310-linux_aarch64.whl
-            ;;
-        35.*)
-            python3 -m pip install --user --no-cache-dir \
-                https://developer.download.nvidia.com/compute/redist/jp/v512/pytorch/torch-2.1.0a0+41361538.nv23.06-cp38-cp38-linux_aarch64.whl
-            ;;
-        *)
-            python3 -m pip install --user --no-cache-dir torch torchvision torchaudio --index-url https://pypi.nvidia.com || true
-            ;;
-    esac
-    
-    if python3 -c "import torch" 2>/dev/null; then
-        log "✓ PyTorch installed"
-        python3 -c "import torch; print(f'  CUDA: {torch.cuda.is_available()}')"
-    else
-        warn "PyTorch installation had issues"
-    fi
-fi
-
 # Install additional Python packages
 log "Installing Python ML packages..."
 python3 -m pip install --user --no-cache-dir \
@@ -397,32 +369,6 @@ python3 -m pip install --user --no-cache-dir \
     opencv-python scikit-learn scikit-image \
     Jetson.GPIO pyserial transforms3d pyquaternion \
     simple-pid tqdm requests flask 2>/dev/null || warn "Some packages failed"
-
-# ------------------------------------------------------------------------------
-# STEP 9: ULTRALYTICS YOLOV8
-# ------------------------------------------------------------------------------
-show_progress "Step 9: Ultralytics YOLOv8"
-
-if python3 -c "import ultralytics" 2>/dev/null; then
-    skip "Ultralytics already installed"
-else
-    log "Installing Ultralytics YOLOv8..."
-    python3 -m pip install --user --no-cache-dir \
-        ultralytics onnx onnx-simplifier || warn "Ultralytics had issues"
-    log "✓ Ultralytics installed"
-fi
-
-# Download models
-mkdir -p "${HOME_DIR}/models"
-for model in yolov8n.pt yolov8s.pt; do
-    if [ -f "${HOME_DIR}/models/${model}" ]; then
-        skip "Model ${model} already exists"
-    else
-        log "Downloading ${model}..."
-        wget -q "https://github.com/ultralytics/assets/releases/download/v0.0.0/${model}" \
-            -O "${HOME_DIR}/models/${model}" || warn "Download failed for ${model}"
-    fi
-done
 
 # ------------------------------------------------------------------------------
 # STEP 10: ROS 2 NAVIGATION PACKAGES
