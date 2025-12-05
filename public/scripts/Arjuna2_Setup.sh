@@ -2,16 +2,17 @@
 # ==============================================================================
 # NEWRRO TECH LLP - COMPLETE PRODUCTION SETUP (JETSON ORIN NANO SUPER)
 # Target: JetPack 6 (Ubuntu 22.04) | ROS 2 Humble (Official Debs)
-# Features: Docker, GPU AI, ROS 2 Binary Install, Optimized
+# Features: Clean Uninstall + Fresh Install
 # ==============================================================================
 
-set -euo pipefail
+# Use -eo instead of -euo (remove 'u' for ROS compatibility)
+set -eo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 # -------------------------
 # CONFIGURATION
 # -------------------------
-TOTAL_STEPS=13
+TOTAL_STEPS=14
 CURRENT_STEP=0
 NPROC=$(nproc || echo 4)
 
@@ -66,6 +67,7 @@ KEEPALIVE_PID=$!
 
 echo "=========================================================================="
 echo "               NEWRRO TECH LLP - COMPLETE PRODUCTION SETUP"
+echo "                        WITH CLEAN UNINSTALL"
 echo "=========================================================================="
 echo " Target Device:  Jetson Orin Nano Super"
 echo " JetPack:        6.x (Ubuntu 22.04)"
@@ -77,9 +79,100 @@ echo "==========================================================================
 echo ""
 
 # ------------------------------------------------------------------------------
+# STEP 0: COMPLETE UNINSTALL & CLEANUP
+# ------------------------------------------------------------------------------
+show_progress "Step 0: Complete Uninstall & System Cleanup"
+
+log "Starting complete system cleanup..."
+
+# 0.1 - Remove ROS 2 Humble
+log "Removing existing ROS 2 installation..."
+sudo apt remove --purge -y 'ros-humble-*' 2>/dev/null || true
+sudo apt remove --purge -y ros-dev-tools 2>/dev/null || true
+sudo apt remove --purge -y python3-rosdep 2>/dev/null || true
+sudo apt remove --purge -y python3-colcon-common-extensions 2>/dev/null || true
+
+# Remove ROS sources
+log "Removing ROS repositories..."
+sudo rm -f /etc/apt/sources.list.d/ros2*.list
+sudo rm -f /etc/apt/sources.list.d/ros-latest.list
+sudo rm -f /usr/share/keyrings/ros-archive-keyring.gpg
+
+# Remove rosdep
+log "Cleaning rosdep..."
+sudo rm -rf /etc/ros/rosdep/
+sudo rm -rf ~/.ros/
+
+# 0.2 - Remove Docker & NVIDIA Container Toolkit
+log "Removing Docker and NVIDIA Container Toolkit..."
+sudo apt remove --purge -y docker.io docker-ce docker-ce-cli containerd.io 2>/dev/null || true
+sudo apt remove --purge -y nvidia-container-toolkit nvidia-container-toolkit-base 2>/dev/null || true
+sudo rm -f /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sudo rm -f /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+
+# 0.3 - Remove Python packages
+log "Removing Python packages..."
+pip3 uninstall -y jetson-stats 2>/dev/null || true
+pip3 uninstall -y torch torchvision torchaudio 2>/dev/null || true
+pip3 uninstall -y ultralytics onnx onnx-simplifier 2>/dev/null || true
+pip3 uninstall -y opencv-python 2>/dev/null || true
+sudo -H pip3 uninstall -y jetson-stats 2>/dev/null || true
+
+# 0.4 - Remove workspaces
+log "Removing workspaces..."
+rm -rf "${HOME_DIR}/arjuna_ros2" 2>/dev/null || true
+rm -rf "${HOME_DIR}/ros2_humble" 2>/dev/null || true
+rm -rf "${HOME_DIR}/.ros" 2>/dev/null || true
+
+# 0.5 - Remove swap if it was created by us
+log "Checking swap configuration..."
+if grep -q '/swapfile' /etc/fstab 2>/dev/null; then
+    log "Removing swap file..."
+    sudo swapoff /swapfile 2>/dev/null || true
+    sudo sed -i '/\/swapfile/d' /etc/fstab
+    sudo rm -f /swapfile
+fi
+
+# 0.6 - Clean bashrc
+log "Cleaning .bashrc..."
+if grep -q "NEWRRO_COMPLETE_SETUP" "${HOME_DIR}/.bashrc" 2>/dev/null; then
+    sed -i '/# ============================================================================/,/# ============================================================================/d' "${HOME_DIR}/.bashrc"
+fi
+
+# 0.7 - Remove udev rules
+log "Removing custom udev rules..."
+sudo rm -f /etc/udev/rules.d/80-movidius.rules
+sudo rm -f /etc/udev/rules.d/99-newrro*.rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+
+# 0.8 - Clean apt cache and fix broken packages
+log "Cleaning APT cache and fixing broken packages..."
+sudo apt update
+sudo apt --fix-broken install -y
+sudo apt autoremove -y
+sudo apt autoclean
+sudo apt clean
+
+# 0.9 - Remove user from groups (will re-add later)
+log "Resetting user groups (will restore later)..."
+# Don't remove, just note current state
+
+# 0.10 - Final cleanup
+log "Final cleanup..."
+rm -rf ~/.cache/pip
+rm -rf /tmp/ros*
+rm -rf /tmp/colcon*
+
+log "✓ Complete uninstall finished"
+log "System is now clean and ready for fresh installation"
+echo ""
+read -p "Press ENTER to continue with fresh installation, or Ctrl+C to exit..."
+
+# ------------------------------------------------------------------------------
 # STEP 1: SYSTEM INFORMATION GATHERING
 # ------------------------------------------------------------------------------
-show_progress "Gathering System Information"
+show_progress "Step 1: Gathering System Information"
 
 log "Checking system configuration..."
 
@@ -111,24 +204,18 @@ log "Build parallelism: ${BUILD_JOBS} jobs"
 # ------------------------------------------------------------------------------
 # STEP 2: SYSTEM PREPARATION
 # ------------------------------------------------------------------------------
-show_progress "System Preparation: Swap, Locale, Tools"
+show_progress "Step 2: System Preparation"
 
 # Create swap
-if ! grep -q '/swapfile' /etc/fstab 2>/dev/null; then
-    log "Creating 8GB swap file"
-    if [ ! -f /swapfile ]; then
-        sudo fallocate -l 8G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=8192
-        sudo chmod 600 /swapfile
-        sudo mkswap /swapfile
-    fi
-    sudo swapon /swapfile
-    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
-    log "Swap created"
-else
-    log "Swap already configured"
-fi
+log "Creating 8GB swap file"
+sudo fallocate -l 8G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=8192
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+log "Swap created"
 
-# Set locale (ROS 2 requirement)
+# Set locale
 log "Setting up UTF-8 locale..."
 sudo apt update && sudo apt install -y locales
 sudo locale-gen en_US en_US.UTF-8
@@ -145,7 +232,7 @@ sudo apt-get install -y --no-install-recommends \
     chrony usbutils libusb-1.0-0-dev ccache \
     openssh-server python3-dev pkg-config python3-pip python3-venv
 
-# CRITICAL: System upgrade with allow-downgrades
+# System upgrade with allow-downgrades
 log "Upgrading system packages..."
 sudo apt-get upgrade -y --allow-downgrades
 sudo apt-get autoremove -y
@@ -164,7 +251,7 @@ log "System preparation complete"
 # ------------------------------------------------------------------------------
 # STEP 3: JETSON OPTIMIZATIONS
 # ------------------------------------------------------------------------------
-show_progress "Applying Jetson Performance Optimizations"
+show_progress "Step 3: Applying Jetson Performance Optimizations"
 
 if [ -f /etc/nv_tegra_release ]; then
     log "Configuring Jetson for maximum performance..."
@@ -187,36 +274,31 @@ fi
 # ------------------------------------------------------------------------------
 # STEP 4: DOCKER & NVIDIA CONTAINER TOOLKIT
 # ------------------------------------------------------------------------------
-show_progress "Installing Docker & NVIDIA Container Toolkit"
+show_progress "Step 4: Installing Docker & NVIDIA Container Toolkit"
 
-if ! command -v docker &>/dev/null; then
-    log "Installing Docker..."
-    sudo apt-get install -y docker.io
-    sudo systemctl enable --now docker
-    sudo usermod -aG docker "${USER_NAME}"
-    log "Docker installed"
-else
-    log "Docker already installed"
+log "Installing Docker..."
+sudo apt-get install -y docker.io
+sudo systemctl enable --now docker
+sudo usermod -aG docker "${USER_NAME}"
+log "Docker installed"
+
+log "Installing NVIDIA Container Toolkit..."
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
+    sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+    sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+sudo apt-get update
+sudo apt-get install -y --allow-downgrades nvidia-container-toolkit
+
+if command -v nvidia-ctk &>/dev/null; then
+    sudo nvidia-ctk runtime configure --runtime=docker
+    sudo systemctl restart docker
 fi
 
-if ! dpkg -l | grep -q nvidia-container-toolkit; then
-    log "Installing NVIDIA Container Toolkit..."
-    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
-        sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-    
-    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-        sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-        sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-    
-    sudo apt-get update
-    sudo apt-get install -y --allow-downgrades nvidia-container-toolkit
-    
-    if command -v nvidia-ctk &>/dev/null; then
-        sudo nvidia-ctk runtime configure --runtime=docker
-        sudo systemctl restart docker
-    fi
-    log "NVIDIA Container Toolkit installed"
-fi
+log "NVIDIA Container Toolkit installed"
 
 if ! docker --version &>/dev/null; then
     err "Docker installation failed"
@@ -226,7 +308,7 @@ fi
 # ------------------------------------------------------------------------------
 # STEP 5: JETSON UTILITIES
 # ------------------------------------------------------------------------------
-show_progress "Installing Jetson Utilities"
+show_progress "Step 5: Installing Jetson Utilities"
 
 log "Installing jetson-stats (jtop)..."
 if sudo -H pip3 install -U jetson-stats --break-system-packages 2>/dev/null; then
@@ -240,17 +322,11 @@ fi
 # ------------------------------------------------------------------------------
 # STEP 6: ROS 2 HUMBLE - SETUP SOURCES
 # ------------------------------------------------------------------------------
-show_progress "Setting Up ROS 2 Humble Repository"
+show_progress "Step 6: Setting Up ROS 2 Humble Repository"
 
 log "Enabling Ubuntu Universe repository..."
 sudo apt install -y software-properties-common
 sudo add-apt-repository -y universe
-
-log "Cleaning old ROS GPG keys..."
-# Remove old ROS keys to prevent conflicts
-sudo rm -f /usr/share/keyrings/ros-archive-keyring.gpg 2>/dev/null || true
-sudo rm -f /etc/apt/sources.list.d/ros2.list 2>/dev/null || true
-sudo rm -f /etc/apt/sources.list.d/ros2-latest.list 2>/dev/null || true
 
 log "Adding ROS 2 APT source..."
 sudo apt update && sudo apt install -y curl
@@ -266,68 +342,41 @@ log "ROS 2 repository configured"
 # ------------------------------------------------------------------------------
 # STEP 7: ROS 2 HUMBLE - INSTALL PACKAGES
 # ------------------------------------------------------------------------------
-show_progress "Installing ROS 2 Humble Packages"
+show_progress "Step 7: Installing ROS 2 Humble (5-10 minutes)"
 
-log "Checking ROS 2 package availability..."
+log "Installing ROS 2 Humble Desktop..."
+sudo apt install -y --allow-downgrades ros-humble-desktop
 
-# Try to install desktop first
-if sudo apt install -y ros-humble-desktop 2>&1 | tee -a "$LOG_FILE"; then
-    log "✓ ROS 2 Desktop installed"
-else
-    warn "Desktop install failed - trying ROS Base..."
-    
-    # Fallback to ros-base if desktop fails
-    if sudo apt install -y ros-humble-ros-base 2>&1 | tee -a "$LOG_FILE"; then
-        log "✓ ROS 2 Base installed (without GUI tools)"
-    else
-        err "ROS 2 installation failed - packages not available for this system"
-        err "This might be a JetPack 6.0 compatibility issue"
-        
-        log "Attempting alternative installation method..."
-        
-        # Try installing core packages individually
-        sudo apt install -y \
-            ros-humble-ros-core \
-            ros-humble-geometry2 \
-            ros-humble-rosbag2 \
-            python3-colcon-common-extensions || {
-            err "Alternative installation also failed"
-            err "You may need to build ROS 2 from source"
-            exit 1
-        }
-    fi
-fi
+log "✓ ROS 2 Desktop installed"
 
-# Install dev tools
 log "Installing ROS development tools..."
-sudo apt install -y ros-dev-tools || warn "ros-dev-tools install had issues"
+sudo apt install -y ros-dev-tools
 
 # Initialize rosdep
 if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then
-    sudo rosdep init || warn "rosdep already initialized"
+    sudo rosdep init || true
 fi
 
-# Source and update rosdep
-if [ -f /opt/ros/humble/setup.bash ]; then
-    source /opt/ros/humble/setup.bash
-    rosdep update || warn "rosdep update failed"
-    
-    # Verify installation
-    if ros2 --version &>/dev/null; then
-        log "✓ ROS 2 Humble installed successfully"
-    else
-        err "ROS 2 installed but ros2 command not found"
-        exit 1
-    fi
+# Source ROS (with unbound variable protection)
+log "Sourcing ROS 2 environment..."
+set +u
+source /opt/ros/humble/setup.bash
+set -u
+
+rosdep update
+
+# Verify installation
+if ros2 --version &>/dev/null; then
+    log "✓ ROS 2 Humble installed and verified"
 else
-    err "ROS 2 installation failed - setup.bash not found"
+    err "ROS 2 command not found"
     exit 1
 fi
 
 # ------------------------------------------------------------------------------
 # STEP 8: GPU-ACCELERATED PYTHON LIBRARIES
 # ------------------------------------------------------------------------------
-show_progress "Installing GPU-Accelerated Python Libraries"
+show_progress "Step 8: Installing GPU-Accelerated Python Libraries"
 
 log "Installing system ML dependencies..."
 sudo apt-get install -y \
@@ -366,7 +415,7 @@ python3 -m pip install --user --no-cache-dir \
 # ------------------------------------------------------------------------------
 # STEP 9: ULTRALYTICS YOLOv8
 # ------------------------------------------------------------------------------
-show_progress "Installing Ultralytics YOLOv8"
+show_progress "Step 9: Installing Ultralytics YOLOv8"
 
 python3 -m pip install --user --no-cache-dir \
     ultralytics onnx onnx-simplifier || warn "Ultralytics had issues"
@@ -382,9 +431,11 @@ done
 # ------------------------------------------------------------------------------
 # STEP 10: ROS 2 ROBOTICS PACKAGES
 # ------------------------------------------------------------------------------
-show_progress "Installing ROS 2 Navigation & Robotics Packages"
+show_progress "Step 10: Installing ROS 2 Navigation & Robotics Packages"
 
+set +u
 source /opt/ros/humble/setup.bash
+set -u
 
 sudo apt install -y \
     ros-humble-navigation2 \
@@ -410,7 +461,7 @@ log "ROS 2 packages installed"
 # ------------------------------------------------------------------------------
 # STEP 11: ARJUNA WORKSPACE & SENSOR DRIVERS
 # ------------------------------------------------------------------------------
-show_progress "Setting Up Arjuna Workspace"
+show_progress "Step 11: Setting Up Arjuna Workspace"
 
 mkdir -p "${WS_DIR}/src"
 cd "${WS_DIR}/src"
@@ -435,7 +486,10 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger
 
 cd "${WS_DIR}"
+set +u
 source /opt/ros/humble/setup.bash
+set -u
+
 rosdep install --from-paths src --ignore-src -r -y || warn "Some rosdep failed"
 
 log "Building workspace..."
@@ -452,7 +506,7 @@ fi
 # ------------------------------------------------------------------------------
 # STEP 12: DEVELOPMENT TOOLS
 # ------------------------------------------------------------------------------
-show_progress "Installing Development Tools"
+show_progress "Step 12: Installing Development Tools"
 
 if ! command -v code &>/dev/null; then
     wget -qO- https://packages.microsoft.com/keys/microsoft.asc | \
@@ -468,7 +522,7 @@ fi
 # ------------------------------------------------------------------------------
 # STEP 13: FINALIZATION
 # ------------------------------------------------------------------------------
-show_progress "Finalizing Configuration"
+show_progress "Step 13: Finalizing Configuration"
 
 sudo usermod -aG dialout,video,i2c,plugdev,docker "${USER_NAME}"
 sudo groupadd -f gpio
@@ -508,7 +562,11 @@ rm -rf "${WS_DIR}/build" "${WS_DIR}/log"
 sudo apt-get clean
 sudo apt-get autoremove -y
 
-# Verification
+# ------------------------------------------------------------------------------
+# STEP 14: VERIFICATION
+# ------------------------------------------------------------------------------
+show_progress "Step 14: Final Verification"
+
 log "Running verification..."
 FAILED_CHECKS=()
 
@@ -531,8 +589,9 @@ fi
 echo ""
 echo "📋 NEXT STEPS:"
 echo "  1. sudo reboot"
-echo "  2. ros2 run demo_nodes_cpp talker"
-echo "  3. check_usb"
+echo "  2. Test ROS 2: ros2 run demo_nodes_cpp talker"
+echo "  3. Check devices: check_usb"
+echo "  4. Open workspace: ws && code ."
 echo ""
 echo "Workspace: ${WS_DIR}"
 echo "Log: ${LOG_FILE}"
