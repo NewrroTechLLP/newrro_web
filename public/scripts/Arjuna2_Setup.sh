@@ -266,34 +266,63 @@ log "ROS 2 repository configured"
 # ------------------------------------------------------------------------------
 # STEP 7: ROS 2 HUMBLE - INSTALL PACKAGES
 # ------------------------------------------------------------------------------
-show_progress "Installing ROS 2 Humble Packages (5-10 minutes)"
+show_progress "Installing ROS 2 Humble Packages"
 
-log "Installing ROS 2 Humble Desktop (full installation)..."
-sudo apt install -y ros-humble-desktop
+log "Checking ROS 2 package availability..."
 
+# Try to install desktop first
+if sudo apt install -y ros-humble-desktop 2>&1 | tee -a "$LOG_FILE"; then
+    log "✓ ROS 2 Desktop installed"
+else
+    warn "Desktop install failed - trying ROS Base..."
+    
+    # Fallback to ros-base if desktop fails
+    if sudo apt install -y ros-humble-ros-base 2>&1 | tee -a "$LOG_FILE"; then
+        log "✓ ROS 2 Base installed (without GUI tools)"
+    else
+        err "ROS 2 installation failed - packages not available for this system"
+        err "This might be a JetPack 6.0 compatibility issue"
+        
+        log "Attempting alternative installation method..."
+        
+        # Try installing core packages individually
+        sudo apt install -y \
+            ros-humble-ros-core \
+            ros-humble-geometry2 \
+            ros-humble-rosbag2 \
+            python3-colcon-common-extensions || {
+            err "Alternative installation also failed"
+            err "You may need to build ROS 2 from source"
+            exit 1
+        }
+    fi
+fi
+
+# Install dev tools
 log "Installing ROS development tools..."
-sudo apt install -y ros-dev-tools
+sudo apt install -y ros-dev-tools || warn "ros-dev-tools install had issues"
 
 # Initialize rosdep
 if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then
-    sudo rosdep init
+    sudo rosdep init || warn "rosdep already initialized"
 fi
 
-source /opt/ros/humble/setup.bash
-rosdep update
-
-# Verify installation
-if ! source /opt/ros/humble/setup.bash 2>/dev/null; then
-    err "ROS 2 installation failed"
+# Source and update rosdep
+if [ -f /opt/ros/humble/setup.bash ]; then
+    source /opt/ros/humble/setup.bash
+    rosdep update || warn "rosdep update failed"
+    
+    # Verify installation
+    if ros2 --version &>/dev/null; then
+        log "✓ ROS 2 Humble installed successfully"
+    else
+        err "ROS 2 installed but ros2 command not found"
+        exit 1
+    fi
+else
+    err "ROS 2 installation failed - setup.bash not found"
     exit 1
 fi
-
-if ! ros2 --version &>/dev/null; then
-    err "ROS 2 command not found"
-    exit 1
-fi
-
-log "ROS 2 Humble installed successfully"
 
 # ------------------------------------------------------------------------------
 # STEP 8: GPU-ACCELERATED PYTHON LIBRARIES
