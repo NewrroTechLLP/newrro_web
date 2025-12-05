@@ -1,8 +1,8 @@
 #!/bin/bash
 # ==============================================================================
-# NEWRRO TECH LLP - INTELLIGENT SETUP WITH SKIP LOGIC
+# NEWRRO TECH LLP - INTELLIGENT SETUP WITH GITHUB WORKSPACE
 # Target: JetPack 6 (Ubuntu 22.04) | ROS 2 Humble
-# Features: Checks existing installations, skips completed steps
+# Features: Clones GitHub workspace, checks dependencies, installs only missing
 # ==============================================================================
 
 set -eo pipefail
@@ -23,6 +23,7 @@ fi
 USER_NAME="$USER"
 HOME_DIR="$HOME"
 WS_DIR="${HOME_DIR}/arjuna_ros2/arjuna2_ws"
+GITHUB_WORKSPACE_URL="https://github.com/samartha-s-in/arjuna2_ws.git"
 
 # -------------------------
 # LOGGING & PROGRESS
@@ -63,12 +64,13 @@ sudo -v
 KEEPALIVE_PID=$!
 
 echo "=========================================================================="
-echo "        NEWRRO TECH LLP - INTELLIGENT SETUP WITH SKIP LOGIC"
+echo "        NEWRRO TECH LLP - INTELLIGENT SETUP WITH GITHUB WORKSPACE"
 echo "=========================================================================="
+echo " Workspace Source: ${GITHUB_WORKSPACE_URL}"
 echo " This script will:"
-echo "   ✓ Check existing installations"
-echo "   ✓ Skip already completed steps"
-echo "   ✓ Only install what's missing"
+echo "   ✓ Clone your GitHub workspace with submodules"
+echo "   ✓ Check for required sensor drivers"
+echo "   ✓ Install only missing components"
 echo "   ✓ Preserve existing configurations"
 echo "=========================================================================="
 echo ""
@@ -102,7 +104,7 @@ show_progress "Step 2: System Preparation"
 
 # Check swap
 if grep -q '/swapfile' /etc/fstab 2>/dev/null && [ -f /swapfile ]; then
-    skip "Swap already exists ($(du -h /swapfile | cut -f1))"
+    skip "Swap already exists ($(du -h /swapfile 2>/dev/null | cut -f1 || echo 'unknown'))"
 else
     log "Creating 8GB swap..."
     sudo fallocate -l 8G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=8192
@@ -125,43 +127,26 @@ else
     log "✓ Locale configured"
 fi
 
-# Install essential tools
+# Install essential tools including git-lfs for submodules
 log "Checking essential packages..."
-ESSENTIAL_PKGS="curl git cmake build-essential python3-pip wget"
-MISSING_PKGS=""
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends \
+    curl gnupg2 lsb-release build-essential cmake git git-lfs \
+    software-properties-common ca-certificates \
+    htop nano vim net-tools iputils-ping wget unzip \
+    chrony usbutils libusb-1.0-0-dev ccache \
+    openssh-server python3-dev pkg-config python3-pip python3-venv
 
-for pkg in $ESSENTIAL_PKGS; do
-    if ! dpkg -l | grep -q "^ii  $pkg "; then
-        MISSING_PKGS="$MISSING_PKGS $pkg"
-    fi
-done
-
-if [ -n "$MISSING_PKGS" ]; then
-    log "Installing missing packages:$MISSING_PKGS"
-    sudo apt-get update
-    sudo apt-get install -y --no-install-recommends \
-        curl gnupg2 lsb-release build-essential cmake git git-lfs \
-        software-properties-common ca-certificates \
-        htop nano vim net-tools iputils-ping wget unzip \
-        chrony usbutils libusb-1.0-0-dev ccache \
-        openssh-server python3-dev pkg-config python3-pip python3-venv
-    log "✓ Essential packages installed"
-else
-    skip "All essential packages already installed"
-fi
+# Initialize git-lfs
+git lfs install || warn "git-lfs install failed"
 
 # System upgrade
 log "Checking for system updates..."
-sudo apt-get update
 sudo apt-get upgrade -y --allow-downgrades
 sudo apt-get autoremove -y
 
 # Upgrade pip
-if python3 -m pip --version &>/dev/null; then
-    skip "pip already available"
-else
-    python3 -m pip install --user --upgrade pip setuptools wheel
-fi
+python3 -m pip install --user --upgrade pip setuptools wheel
 
 export PATH="/usr/lib/ccache:$PATH"
 sudo chronyc -a makestep || true
@@ -196,7 +181,7 @@ show_progress "Step 4: Docker & NVIDIA Container Toolkit"
 
 # Check Docker
 if command -v docker &>/dev/null; then
-    skip "Docker already installed ($(docker --version))"
+    skip "Docker already installed ($(docker --version | cut -d',' -f1))"
 else
     log "Installing Docker..."
     sudo apt-get install -y docker.io
@@ -342,33 +327,68 @@ show_progress "Step 8: GPU-Accelerated Libraries"
 
 # Check if ML dependencies are installed
 log "Checking ML dependencies..."
-ML_DEPS_MISSING=false
+sudo apt-get install -y \
+    libopenblas-dev libblas-dev libjpeg-dev zlib1g-dev libhdf5-dev \
+    libssl-dev libffi-dev liblapack-dev gfortran \
+    libopencv-dev python3-opencv
 
-for pkg in libopenblas-dev libopencv-dev python3-opencv; do
-    if ! dpkg -l | grep -q "^ii  $pkg"; then
-        ML_DEPS_MISSING=true
-        break
-    fi
-done
-
-if [ "$ML_DEPS_MISSING" = true ]; then
-    log "Installing ML dependencies..."
-    sudo apt-get install -y \
-        libopenblas-dev libblas-dev libjpeg-dev zlib1g-dev libhdf5-dev \
-        libssl-dev libffi-dev liblapack-dev gfortran \
-        libopencv-dev python3-opencv
-    log "✓ ML dependencies installed"
+# Check PyTorch
+if python3 -c "import torch" 2>/dev/null; then
+    TORCH_VERSION=$(python3 -c "import torch; print(torch.__version__)" 2>/dev/null)
+    skip "PyTorch already installed: ${TORCH_VERSION}"
 else
-    skip "ML dependencies already installed"
+    log "Installing PyTorch for Jetson..."
+    case "$JP_VERSION" in
+        36.*)
+            python3 -m pip install --user --no-cache-dir \
+                https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.3.0-cp310-cp310-linux_aarch64.whl
+            ;;
+        35.*)
+            python3 -m pip install --user --no-cache-dir \
+                https://developer.download.nvidia.com/compute/redist/jp/v512/pytorch/torch-2.1.0a0+41361538.nv23.06-cp38-cp38-linux_aarch64.whl
+            ;;
+        *)
+            python3 -m pip install --user --no-cache-dir torch torchvision torchaudio --index-url https://pypi.nvidia.com || true
+            ;;
+    esac
+    
+    if python3 -c "import torch" 2>/dev/null; then
+        log "✓ PyTorch installed"
+    fi
 fi
 
 # Install additional Python packages
-log "Installing Python ML packages..."
 python3 -m pip install --user --no-cache-dir \
     numpy scipy pandas matplotlib pillow pyyaml \
     opencv-python scikit-learn scikit-image \
     Jetson.GPIO pyserial transforms3d pyquaternion \
     simple-pid tqdm requests flask 2>/dev/null || warn "Some packages failed"
+
+# ------------------------------------------------------------------------------
+# STEP 9: ULTRALYTICS YOLOV8
+# ------------------------------------------------------------------------------
+show_progress "Step 9: Ultralytics YOLOv8"
+
+if python3 -c "import ultralytics" 2>/dev/null; then
+    skip "Ultralytics already installed"
+else
+    log "Installing Ultralytics YOLOv8..."
+    python3 -m pip install --user --no-cache-dir \
+        ultralytics onnx onnx-simplifier || warn "Ultralytics had issues"
+    log "✓ Ultralytics installed"
+fi
+
+# Download models
+mkdir -p "${HOME_DIR}/models"
+for model in yolov8n.pt yolov8s.pt; do
+    if [ -f "${HOME_DIR}/models/${model}" ]; then
+        skip "Model ${model} already exists"
+    else
+        log "Downloading ${model}..."
+        wget -q "https://github.com/ultralytics/assets/releases/download/v0.0.0/${model}" \
+            -O "${HOME_DIR}/models/${model}" || warn "Download failed for ${model}"
+    fi
+done
 
 # ------------------------------------------------------------------------------
 # STEP 10: ROS 2 NAVIGATION PACKAGES
@@ -406,72 +426,166 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# STEP 11: ARJUNA WORKSPACE
+# STEP 11: CLONE ARJUNA WORKSPACE FROM GITHUB
 # ------------------------------------------------------------------------------
-show_progress "Step 11: Arjuna Workspace"
+show_progress "Step 11: Arjuna Workspace from GitHub"
 
-# Check if workspace exists
-if [ -f "${WS_DIR}/install/setup.bash" ]; then
-    skip "Arjuna workspace already built"
+# Check if workspace directory exists
+if [ -d "${WS_DIR}" ]; then
+    log "Workspace directory exists, checking contents..."
+    
+    # Check if it's a git repository
+    if [ -d "${WS_DIR}/.git" ]; then
+        log "Git repository detected, updating..."
+        cd "${WS_DIR}"
+        
+        # Stash any local changes
+        git stash || true
+        
+        # Pull latest changes
+        git pull origin main || git pull origin master || warn "Git pull failed"
+        
+        # Update submodules recursively
+        log "Updating submodules recursively..."
+        git submodule update --init --recursive || warn "Submodule update failed"
+        
+        log "✓ Workspace updated from GitHub"
+    else
+        warn "Workspace exists but is not a git repo"
+        log "Backing up existing workspace..."
+        mv "${WS_DIR}" "${WS_DIR}.backup.$(date +%Y%m%d_%H%M%S)"
+        
+        log "Cloning fresh workspace from GitHub..."
+        mkdir -p "$(dirname ${WS_DIR})"
+        git clone --recursive "${GITHUB_WORKSPACE_URL}" "${WS_DIR}"
+        
+        if [ -d "${WS_DIR}" ]; then
+            log "✓ Workspace cloned from GitHub with submodules"
+        else
+            err "Failed to clone workspace"
+            exit 1
+        fi
+    fi
 else
-    log "Setting up Arjuna workspace..."
-    mkdir -p "${WS_DIR}/src"
-    cd "${WS_DIR}/src"
+    log "Cloning Arjuna workspace from GitHub..."
+    mkdir -p "$(dirname ${WS_DIR})"
     
-    # Clone sensor drivers
-    if [ ! -d "depthai-ros" ]; then
-        log "Cloning DepthAI driver..."
-        git clone --depth 1 -b humble https://github.com/luxonis/depthai-ros.git
+    # Clone with recursive submodules
+    git clone --recursive "${GITHUB_WORKSPACE_URL}" "${WS_DIR}"
+    
+    if [ -d "${WS_DIR}" ]; then
+        log "✓ Workspace cloned from GitHub with all submodules"
     else
-        skip "DepthAI driver already cloned"
+        err "Failed to clone workspace from GitHub"
+        exit 1
     fi
+fi
+
+# Navigate to workspace src
+cd "${WS_DIR}/src"
+
+# ------------------------------------------------------------------------------
+# CHECK AND CLONE REQUIRED SENSOR DRIVERS
+# ------------------------------------------------------------------------------
+
+log "Checking for required sensor drivers..."
+
+# Required sensor drivers
+REQUIRED_DRIVERS=(
+    "sllidar_ros2:https://github.com/Slamtec/sllidar_ros2.git:humble"
+    "ros-imu-bno055:https://github.com/dheera/ros-imu-bno055.git:humble"
+    "depthai-ros:https://github.com/luxonis/depthai-ros.git:humble"
+)
+
+for driver_info in "${REQUIRED_DRIVERS[@]}"; do
+    IFS=':' read -r driver_name driver_url driver_branch <<< "$driver_info"
     
-    if [ ! -d "sllidar_ros2" ]; then
-        log "Cloning RPLidar driver..."
-        git clone --depth 1 -b humble https://github.com/Slamtec/sllidar_ros2.git
+    if [ -d "${WS_DIR}/src/${driver_name}" ]; then
+        log "Checking ${driver_name}..."
+        
+        # Check if it's a git repo and has content
+        if [ -d "${WS_DIR}/src/${driver_name}/.git" ]; then
+            cd "${WS_DIR}/src/${driver_name}"
+            
+            # Check if directory is empty or just has .git
+            if [ "$(ls -A . | grep -v '^\.git$' | wc -l)" -eq 0 ]; then
+                warn "${driver_name} exists but is empty, re-cloning..."
+                cd "${WS_DIR}/src"
+                rm -rf "${driver_name}"
+                git clone --depth 1 -b "${driver_branch}" "${driver_url}"
+                log "✓ ${driver_name} re-cloned"
+            else
+                skip "${driver_name} already exists and has content"
+                
+                # Update to latest
+                log "Updating ${driver_name}..."
+                git pull origin "${driver_branch}" || warn "Update failed for ${driver_name}"
+                
+                # Update submodules if any
+                git submodule update --init --recursive || true
+            fi
+        else
+            warn "${driver_name} exists but is not a git repo, re-cloning..."
+            cd "${WS_DIR}/src"
+            rm -rf "${driver_name}"
+            git clone --depth 1 -b "${driver_branch}" "${driver_url}"
+            log "✓ ${driver_name} cloned"
+        fi
     else
-        skip "RPLidar driver already cloned"
+        log "Cloning ${driver_name}..."
+        cd "${WS_DIR}/src"
+        git clone --depth 1 -b "${driver_branch}" "${driver_url}"
+        
+        if [ -d "${driver_name}" ]; then
+            log "✓ ${driver_name} cloned successfully"
+        else
+            warn "Failed to clone ${driver_name}"
+        fi
     fi
+done
+
+# Back to workspace root
+cd "${WS_DIR}"
+
+# USB rules for OAK-D camera
+if [ ! -f /etc/udev/rules.d/80-movidius.rules ]; then
+    log "Adding udev rules for OAK-D camera..."
+    echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="03e7", MODE="0666"' | \
+        sudo tee /etc/udev/rules.d/80-movidius.rules >/dev/null
+    sudo udevadm control --reload-rules
+    sudo udevadm trigger
+    log "✓ udev rules added"
+else
+    skip "udev rules already exist"
+fi
+
+# ------------------------------------------------------------------------------
+# BUILD WORKSPACE
+# ------------------------------------------------------------------------------
+
+log "Installing workspace dependencies..."
+set +u
+source /opt/ros/humble/setup.bash
+set -u
+
+rosdep install --from-paths src --ignore-src -r -y || warn "Some rosdep dependencies failed"
+
+log "Building workspace (this may take 5-15 minutes)..."
+colcon build \
+    --symlink-install \
+    --parallel-workers "${BUILD_JOBS}" \
+    --cmake-args -DCMAKE_BUILD_TYPE=Release \
+    --event-handlers console_direct+ || warn "Some packages failed to build"
+
+if [ -f "${WS_DIR}/install/setup.bash" ]; then
+    log "✓ Arjuna workspace built successfully"
     
-    if [ ! -d "ros-imu-bno055" ]; then
-        log "Cloning IMU driver..."
-        git clone --depth 1 -b humble https://github.com/dheera/ros-imu-bno055.git
-    else
-        skip "IMU driver already cloned"
-    fi
-    
-    # USB rules
-    if [ ! -f /etc/udev/rules.d/80-movidius.rules ]; then
-        log "Adding udev rules..."
-        echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="03e7", MODE="0666"' | \
-            sudo tee /etc/udev/rules.d/80-movidius.rules >/dev/null
-        sudo udevadm control --reload-rules
-        sudo udevadm trigger
-    else
-        skip "udev rules already exist"
-    fi
-    
-    # Build workspace
+    # List built packages
+    log "Built packages:"
     cd "${WS_DIR}"
-    set +u
-    source /opt/ros/humble/setup.bash
-    set -u
-    
-    log "Installing workspace dependencies..."
-    rosdep install --from-paths src --ignore-src -r -y || warn "Some rosdep failed"
-    
-    log "Building workspace (this may take 5-10 minutes)..."
-    colcon build \
-        --symlink-install \
-        --parallel-workers "${BUILD_JOBS}" \
-        --cmake-args -DCMAKE_BUILD_TYPE=Release \
-        --event-handlers console_direct+ || warn "Some packages failed"
-    
-    if [ -f "${WS_DIR}/install/setup.bash" ]; then
-        log "✓ Arjuna workspace built"
-    else
-        warn "Workspace build had issues"
-    fi
+    colcon list 2>/dev/null || true
+else
+    warn "Workspace build completed with issues"
 fi
 
 # ------------------------------------------------------------------------------
@@ -502,15 +616,12 @@ fi
 # ------------------------------------------------------------------------------
 show_progress "Step 13: User Groups & Permissions"
 
-# Add user to groups
 GROUPS_TO_ADD="dialout video i2c plugdev docker gpio"
 GROUPS_ADDED=""
 
 for group in $GROUPS_TO_ADD; do
-    # Create group if doesn't exist
     sudo groupadd -f "$group" 2>/dev/null || true
     
-    # Check if user is already in group
     if groups "${USER_NAME}" | grep -q "\b$group\b"; then
         continue
     else
@@ -530,7 +641,6 @@ fi
 # ------------------------------------------------------------------------------
 show_progress "Step 14: Shell Configuration"
 
-# Check if our config already exists
 if grep -q "NEWRRO_COMPLETE_SETUP" "${HOME_DIR}/.bashrc" 2>/dev/null; then
     skip ".bashrc already configured"
 else
@@ -577,22 +687,15 @@ sudo apt-get autoremove -y
 clear
 echo ""
 echo "=========================================================================="
-echo "                    ✓ INTELLIGENT SETUP COMPLETE!"
+echo "           ✓ INTELLIGENT SETUP WITH GITHUB WORKSPACE COMPLETE!"
 echo "=========================================================================="
 echo ""
 
 log "Running final verification..."
 echo ""
 
-VERIFICATION_RESULTS=()
-FAILED_CHECKS=()
-
-# Docker
-if command -v docker &>/dev/null; then
-    VERIFICATION_RESULTS+=("✓ Docker: $(docker --version | cut -d',' -f1)")
-else
-    FAILED_CHECKS+=("✗ Docker")
-fi
+echo "📊 VERIFICATION RESULTS:"
+echo "────────────────────────────────────────────────────────────────────────"
 
 # ROS 2
 if [ -f /opt/ros/humble/setup.bash ]; then
@@ -601,63 +704,49 @@ if [ -f /opt/ros/humble/setup.bash ]; then
     set -u
     if command -v ros2 &>/dev/null; then
         ROS_VER=$(ros2 --version 2>/dev/null || echo "installed")
-        VERIFICATION_RESULTS+=("✓ ROS 2: ${ROS_VER}")
+        echo "  ✓ ROS 2: ${ROS_VER}"
     else
-        VERIFICATION_RESULTS+=("✓ ROS 2: Installed (needs reboot)")
+        echo "  ✓ ROS 2: Installed (needs reboot)"
     fi
 else
-    FAILED_CHECKS+=("✗ ROS 2")
+    echo "  ✗ ROS 2: Not found"
 fi
 
 # Workspace
 if [ -f "${WS_DIR}/install/setup.bash" ]; then
-    VERIFICATION_RESULTS+=("✓ Arjuna Workspace: Built")
+    echo "  ✓ Arjuna Workspace: Built from GitHub"
+    
+    # Check for sensor drivers
+    echo ""
+    echo "  📡 Sensor Drivers:"
+    [ -d "${WS_DIR}/src/sllidar_ros2" ] && echo "    ✓ RPLidar (sllidar_ros2)" || echo "    ✗ RPLidar missing"
+    [ -d "${WS_DIR}/src/ros-imu-bno055" ] && echo "    ✓ IMU BNO055" || echo "    ✗ IMU missing"
+    [ -d "${WS_DIR}/src/depthai-ros" ] && echo "    ✓ OAK-D Camera (depthai-ros)" || echo "    ✗ OAK-D missing"
 else
-    FAILED_CHECKS+=("✗ Workspace")
+    echo "  ✗ Workspace: Build failed"
+fi
+
+# Docker
+if command -v docker &>/dev/null; then
+    echo "  ✓ Docker: $(docker --version | cut -d',' -f1)"
+else
+    echo "  ✗ Docker: Not found"
 fi
 
 # PyTorch
 if python3 -c "import torch" 2>/dev/null; then
     PT_VER=$(python3 -c "import torch; print(torch.__version__)" 2>/dev/null)
     PT_CUDA=$(python3 -c "import torch; print('CUDA' if torch.cuda.is_available() else 'CPU')" 2>/dev/null)
-    VERIFICATION_RESULTS+=("✓ PyTorch: ${PT_VER} (${PT_CUDA})")
+    echo "  ✓ PyTorch: ${PT_VER} (${PT_CUDA})"
 else
-    FAILED_CHECKS+=("✗ PyTorch")
+    echo "  ✗ PyTorch: Not found"
 fi
 
 # YOLOv8
 if python3 -c "import ultralytics" 2>/dev/null; then
-    VERIFICATION_RESULTS+=("✓ YOLOv8: Installed")
+    echo "  ✓ YOLOv8: Installed"
 else
-    FAILED_CHECKS+=("○ YOLOv8 (optional)")
-fi
-
-# jtop
-if python3 -c "import jtop" 2>/dev/null; then
-    VERIFICATION_RESULTS+=("✓ jtop: Installed")
-else
-    VERIFICATION_RESULTS+=("○ jtop (needs reboot)")
-fi
-
-# VS Code
-if command -v code &>/dev/null; then
-    VERIFICATION_RESULTS+=("✓ VS Code: Installed")
-else
-    VERIFICATION_RESULTS+=("○ VS Code (optional)")
-fi
-
-echo "📊 VERIFICATION RESULTS:"
-echo "────────────────────────────────────────────────────────────────────────"
-for result in "${VERIFICATION_RESULTS[@]}"; do
-    echo "  $result"
-done
-
-if [ ${#FAILED_CHECKS[@]} -gt 0 ]; then
-    echo ""
-    echo "❌ FAILED CHECKS:"
-    for check in "${FAILED_CHECKS[@]}"; do
-        echo "  $check"
-    done
+    echo "  ○ YOLOv8: Not installed"
 fi
 
 echo ""
@@ -665,48 +754,34 @@ echo "==========================================================================
 echo "📋 NEXT STEPS:"
 echo "=========================================================================="
 echo ""
-echo "1️⃣  REBOOT YOUR SYSTEM (Required for group changes & jtop)"
+echo "1️⃣  REBOOT YOUR SYSTEM"
 echo "   sudo reboot"
 echo ""
-echo "2️⃣  After reboot, test ROS 2:"
-echo "   Terminal 1: ros2 run demo_nodes_cpp talker"
-echo "   Terminal 2: ros2 run demo_nodes_py listener"
+echo "2️⃣  After reboot, test workspace:"
+echo "   ws"
+echo "   ros2src"
+echo "   ros2 pkg list | grep -E '(sllidar|depthai|bno055)'"
 echo ""
-echo "3️⃣  Check GPU:"
-echo "   python3 -c 'import torch; print(torch.cuda.is_available())'"
+echo "3️⃣  Test sensors:"
+echo "   ros2 launch sllidar_ros2 sllidar_launch.py"
+echo "   ros2 launch depthai_examples stereo_node.launch.py"
 echo ""
-echo "4️⃣  Monitor system:"
-echo "   jtop"
+echo "4️⃣  Check devices:"
+echo "   check_usb"
 echo ""
-echo "5️⃣  Start developing:"
+echo "5️⃣  Open in VS Code:"
 echo "   ws && code ."
 echo ""
 echo "=========================================================================="
-echo "📁 LOCATIONS:"
+echo "📁 WORKSPACE INFO:"
 echo "=========================================================================="
-echo "  Workspace:  ${WS_DIR}"
-echo "  Models:     ${HOME_DIR}/models"
-echo "  Log:        ${LOG_FILE}"
+echo "  GitHub URL:  ${GITHUB_WORKSPACE_URL}"
+echo "  Local Path:  ${WS_DIR}"
+echo "  Models:      ${HOME_DIR}/models"
+echo "  Log:         ${LOG_FILE}"
 echo ""
 echo "=========================================================================="
-echo "⚡ USEFUL COMMANDS:"
-echo "=========================================================================="
-echo "  ws           - Go to workspace"
-echo "  ros2build    - Build workspace"
-echo "  ros2test     - Test ROS 2"
-echo "  check_usb    - Show USB devices"
-echo "  jtop         - System monitor"
-echo "  max_power    - Enable max performance"
-echo "  docker_gpu   - Test GPU in Docker"
+echo ""
+echo "🎉 Setup complete! Your GitHub workspace is cloned and ready!"
 echo ""
 echo "=========================================================================="
-
-if [ ${#FAILED_CHECKS[@]} -eq 0 ]; then
-    echo ""
-    echo "🎉 All critical components installed successfully!"
-    echo "Installation completed at: $(date)"
-    echo ""
-fi
-
-echo "=========================================================================="
-echo ""
