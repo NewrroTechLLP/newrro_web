@@ -1,122 +1,199 @@
-cat >> /root/.bashrc <<'BASHRC'
-ros2arjuna_setup() {
-  echo "==========================================="
-  echo "  ARJUNA SETUP - INSTALLING ALL DEPENDENCIES"
-  echo "==========================================="
-  echo ""
-  # ============ ROS 2 PACKAGES ============
-  echo "Installing ROS 2 packages..."
-  apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout=120
-  apt-get install -y \
-    ros-foxy-nav2-bringup \
-    ros-foxy-nav2-lifecycle-manager \
-    ros-foxy-nav2-map-server \
-    ros-foxy-navigation2 \
-    ros-foxy-nav2-common \
-    ros-foxy-slam-toolbox \
-    ros-foxy-cartographer \
-    ros-foxy-cartographer-ros \
-    ros-foxy-robot-localization \
-    ros-foxy-tf2-ros \
-    ros-foxy-tf2-geometry-msgs \
-    ros-foxy-tf2-tools \
-    ros-foxy-robot-state-publisher \
-    ros-foxy-teleop-twist-keyboard \
-    ros-foxy-teleop-twist-joy \
-    ros-foxy-rviz2 \
-    ros-foxy-rviz-default-plugins \
-    ros-foxy-rqt \
-    ros-foxy-rqt-common-plugins \
-    ros-foxy-cv-bridge \
-    ros-foxy-vision-opencv \
-    ros-foxy-image-transport \
-    ros-foxy-compressed-image-transport \
-    ros-foxy-joint-state-publisher \
-    ros-foxy-xacro
-  echo ""
-  # ============ PYTHON PACKAGES VIA APT ============
-  echo "Installing Python packages via apt..."
-  apt-get install -y \
-    python3-opencv \
-    python3-numpy \
-    python3-scipy \
-    python3-matplotlib \
-    python3-pil \
-    python3-flask \
-    python3-flask-cors \
-    python3-requests \
-    python3-yaml \
-    python3-psutil \
-    python3-pytest \
-    python3-skimage
-  echo ""
-  # ============ PYTHON PACKAGES VIA PIP (NOT IN APT) ============
-  echo "Installing Python packages via pip3..."
-  pip3 install --break-system-packages \
-    pyzbar \
-    qrcode \
-    transforms3d \
-    pyquaternion \
-    RPi.GPIO \
-    gpiozero \
-    SpeechRecognition \
-    pyttsx3 \
-    playsound \
-    flask-socketio \
-    python-socketio \
-    simple-pid \
-    imutils \
-    tqdm
-  echo ""
-  # ============ CLONE WORKSPACE ============
-  echo "Cloning Arjuna workspace..."
-  mkdir -p /root/arjuna_ros2
-  cd /root/arjuna_ros2 && rm -rf arjuna2_ws
-  git clone --recurse-submodules https://github.com/samartha-s-in/arjuna2_ws.git
-  echo ""
-  # ============ CLONE HARDWARE DRIVERS ============
-  echo "Cloning hardware drivers..."
-  cd /root/arjuna_ros2/arjuna2_ws/src
-  if [ ! -d "sllidar_ros2" ]; then
-    git clone https://github.com/Slamtec/sllidar_ros2.git
-  fi
-  if [ ! -d "ros-imu-bno055" ]; then
-    git clone https://github.com/dheera/ros-imu-bno055.git
-  fi
-  echo ""
-  # ============ BUILD WORKSPACE ============
-  echo "Building workspace..."
-  cd /root/arjuna_ros2/arjuna2_ws
-  source /opt/ros/foxy/setup.bash
-  colcon build --symlink-install
-  source /root/arjuna_ros2/arjuna2_ws/install/setup.bash
-  echo ""
-  # ============ VERIFY INSTALLATION ============
-  echo "==========================================="
-  echo "  CHECKING DEPENDENCIES"
-  echo "==========================================="
-  python3 -c "import cv2; print(\"✓ OpenCV:\", cv2.__version__)" 2>/dev/null || echo "✗ OpenCV"
-  python3 -c "import pyzbar; print(\"✓ pyzbar\")" 2>/dev/null || echo "✗ pyzbar"
-  python3 -c "import transforms3d; print(\"✓ transforms3d\")" 2>/dev/null || echo "✗ transforms3d"
-  python3 -c "import serial; print(\"✓ pyserial\")" 2>/dev/null || echo "✗ pyserial"
-  python3 -c "import speech_recognition; print(\"✓ SpeechRecognition\")" 2>/dev/null || echo "✗ SpeechRecognition"
-  python3 -c "import flask; print(\"✓ Flask\")" 2>/dev/null || echo "✗ Flask"
-  python3 -c "import numpy; print(\"✓ NumPy:\", numpy.__version__)" 2>/dev/null || echo "✗ NumPy"
-  python3 -c "import psutil; print(\"✓ psutil\")" 2>/dev/null || echo "✗ psutil"
-  echo "==========================================="
-  ros2 pkg list | grep -q slam_toolbox && echo "✓ SLAM Toolbox" || echo "✗ SLAM Toolbox"
-  ros2 pkg list | grep -q robot_localization && echo "✓ Robot Localization" || echo "✗ Robot Localization"
-  ros2 pkg list | grep -q nav2 && echo "✓ Nav2" || echo "✗ Nav2"
-  echo "==========================================="
-  echo ""
-  echo "==========================================="
-  echo "  ✓ ARJUNA SETUP COMPLETE"
-  echo "==========================================="
-  cd /root/
-}
+#!/bin/bash
+# ==============================================================================
+# NEWRRO TECH LLP - TF2 & NAV2 ESSENTIAL PACKAGES INSTALLER
+# Installs only required TF2 and Nav2 packages for robot navigation
+# ==============================================================================
 
-save_map() {
-  read -p "Enter map name (default: my_map): " map_name
-  map_name=${map_name:-my_map}
-  ros2 run nav2_map_server map_saver_cli -f /root/arjuna_ros2/arjuna2_ws/src/arjuna/arjuna/maps/"$map_name"
-  echo "Map saved as: /root/arjuna_ros2/arjuna2_ws/src/arjuna/arjuna/maps/${map_name}.pgm and ${map_name}.yaml"
+set -e
+
+LOG_FILE="${HOME}/tf2_nav2_install_$(date +%Y%m%d_%H%M%S).log"
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+log() { echo -e "\n[$(date +%H:%M:%S)] [INFO] $*"; }
+warn() { echo -e "\n[$(date +%H:%M:%S)] [WARN] $*"; }
+err() { echo -e "\n[$(date +%H:%M:%S)] [ERROR] $*"; }
+success() { echo -e "\n[$(date +%H:%M:%S)] [SUCCESS] $*"; }
+
+echo "=========================================================================="
+echo "       TF2 & NAV2 ESSENTIAL PACKAGES INSTALLER"
+echo "=========================================================================="
+echo ""
+
+# Check if ROS 2 is installed
+if [ ! -f /opt/ros/humble/setup.bash ]; then
+    err "ROS 2 Humble not installed. Please install ROS 2 first."
+    exit 1
+fi
+
+log "Sourcing ROS 2 environment..."
+source /opt/ros/humble/setup.bash
+
+log "Updating package lists..."
+sudo apt-get update
+
+# ------------------------------------------------------------------------------
+# TF2 (Transform) COMPLETE PACKAGE
+# ------------------------------------------------------------------------------
+echo ""
+echo "=========================================================================="
+echo " [1/2] INSTALLING TF2 (TRANSFORM) PACKAGES"
+echo "=========================================================================="
+
+log "Installing TF2 core packages..."
+sudo apt-get install -y \
+    ros-humble-tf2 \
+    ros-humble-tf2-ros \
+    ros-humble-tf2-py \
+    ros-humble-tf2-tools \
+    ros-humble-tf2-msgs \
+    ros-humble-tf2-geometry-msgs \
+    ros-humble-tf2-sensor-msgs \
+    ros-humble-tf2-eigen \
+    ros-humble-tf2-kdl \
+    ros-humble-tf2-bullet \
+    ros-humble-geometry2
+
+success "✓ TF2 packages installed"
+
+# ------------------------------------------------------------------------------
+# NAV2 COMPLETE PACKAGE
+# ------------------------------------------------------------------------------
+echo ""
+echo "=========================================================================="
+echo " [2/2] INSTALLING NAV2 (NAVIGATION) PACKAGES"
+echo "=========================================================================="
+
+log "Installing Nav2 core navigation stack..."
+sudo apt-get install -y \
+    ros-humble-navigation2 \
+    ros-humble-nav2-bringup \
+    ros-humble-nav2-common \
+    ros-humble-nav2-msgs
+
+log "Installing Nav2 map server and map saver..."
+sudo apt-get install -y \
+    ros-humble-nav2-map-server \
+    ros-humble-nav2-lifecycle-manager
+
+log "Installing Nav2 planners..."
+sudo apt-get install -y \
+    ros-humble-nav2-planner \
+    ros-humble-nav2-navfn-planner \
+    ros-humble-nav2-theta-star-planner \
+    ros-humble-nav2-smac-planner
+
+log "Installing Nav2 controllers..."
+sudo apt-get install -y \
+    ros-humble-nav2-controller \
+    ros-humble-nav2-regulated-pure-pursuit-controller \
+    ros-humble-nav2-dwb-controller \
+    ros-humble-nav2-rotation-shim-controller
+
+log "Installing Nav2 behaviors..."
+sudo apt-get install -y \
+    ros-humble-nav2-behaviors \
+    ros-humble-nav2-bt-navigator \
+    ros-humble-nav2-waypoint-follower
+
+log "Installing Nav2 costmap and AMCL..."
+sudo apt-get install -y \
+    ros-humble-nav2-costmap-2d \
+    ros-humble-nav2-amcl
+
+log "Installing Nav2 utilities and tools..."
+sudo apt-get install -y \
+    ros-humble-nav2-util \
+    ros-humble-nav2-core \
+    ros-humble-nav2-rviz-plugins \
+    ros-humble-nav2-collision-monitor
+
+log "Installing SLAM Toolbox (for mapping)..."
+sudo apt-get install -y \
+    ros-humble-slam-toolbox
+
+log "Installing Robot Localization..."
+sudo apt-get install -y \
+    ros-humble-robot-localization
+
+success "✓ Nav2 packages installed"
+
+# ------------------------------------------------------------------------------
+# VERIFICATION
+# ------------------------------------------------------------------------------
+echo ""
+echo "=========================================================================="
+echo " VERIFICATION"
+echo "=========================================================================="
+echo ""
+
+log "Verifying TF2 installation..."
+if ros2 pkg list | grep -q "tf2"; then
+    success "✓ TF2 packages found"
+    ros2 pkg list | grep "tf2"
+else
+    err "✗ TF2 packages not found"
+fi
+
+echo ""
+log "Verifying Nav2 installation..."
+if ros2 pkg list | grep -q "nav2"; then
+    success "✓ Nav2 packages found"
+    ros2 pkg list | grep "nav2"
+else
+    err "✗ Nav2 packages not found"
+fi
+
+echo ""
+log "Verifying map_server availability..."
+if ros2 pkg executables nav2_map_server | grep -q "map_saver_cli"; then
+    success "✓ map_saver_cli available"
+else
+    warn "✗ map_saver_cli not found"
+fi
+
+echo ""
+echo "=========================================================================="
+echo " INSTALLATION COMPLETE"
+echo "=========================================================================="
+echo ""
+
+success "🎉 TF2 and Nav2 packages installed successfully!"
+
+echo ""
+echo "=========================================================================="
+echo " QUICK USAGE EXAMPLES"
+echo "=========================================================================="
+echo ""
+
+echo "1. View TF tree:"
+echo "   ros2 run tf2_tools view_frames"
+echo ""
+
+echo "2. Echo TF transforms:"
+echo "   ros2 run tf2_ros tf2_echo <source_frame> <target_frame>"
+echo ""
+
+echo "3. Save a map (while SLAM is running):"
+echo "   ros2 run nav2_map_server map_saver_cli -f ~/my_map"
+echo ""
+
+echo "4. Load a map:"
+echo "   ros2 run nav2_map_server map_server --ros-args -p yaml_filename:=my_map.yaml"
+echo ""
+
+echo "5. Launch Nav2 with a map:"
+echo "   ros2 launch nav2_bringup bringup_launch.py map:=/path/to/my_map.yaml"
+echo ""
+
+echo "6. Launch SLAM Toolbox for mapping:"
+echo "   ros2 launch slam_toolbox online_async_launch.py"
+echo ""
+
+echo "=========================================================================="
+echo " IMPORTANT FILES"
+echo "=========================================================================="
+echo ""
+echo "  Log File: ${LOG_FILE}"
+echo ""
+echo "=========================================================================="
+echo ""
