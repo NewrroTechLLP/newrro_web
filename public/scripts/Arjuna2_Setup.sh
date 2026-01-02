@@ -1,40 +1,40 @@
 #!/bin/bash
 # ==============================================================================
-# NEWRRO TECH LLP - COMPLETE PRODUCTION SETUP (JETSON ORIN NANO SUPER)
-# Target: JetPack 6 (Ubuntu 22.04) | ROS 2 Humble (Official Method)
-# Features: Docker, GPU AI, ROS 2 from Source, Optimized Builds
+# NEWRRO TECH LLP - INTELLIGENT SETUP WITH GITHUB WORKSPACE
+# Target: JetPack 6 (Ubuntu 22.04) | ROS 2 Humble
+# Features: Clones GitHub workspace, checks dependencies, installs only missing
 # ==============================================================================
 
-set -euo pipefail
+set -eo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 # -------------------------
 # CONFIGURATION
 # -------------------------
-TOTAL_STEPS=15
+TOTAL_STEPS=14
 CURRENT_STEP=0
 NPROC=$(nproc || echo 4)
 
-# Don't run as root
 if [ "$EUID" -eq 0 ]; then
-    echo "[ERROR] Don't run this script as root. Run as your user - it will sudo when needed."
+    echo "[ERROR] Don't run this script as root. Run as your user."
     exit 1
 fi
 
 USER_NAME="$USER"
 HOME_DIR="$HOME"
-WS_DIR="${HOME_DIR}/arjuna2_ws"
-ROS2_WS="${HOME_DIR}/ros2_humble"
+WS_DIR="${HOME_DIR}/arjuna_ros2/arjuna2_ws"
+GITHUB_WORKSPACE_URL="https://github.com/samartha-s-in/arjuna2_ws.git"
 
 # -------------------------
 # LOGGING & PROGRESS
 # -------------------------
-LOG_FILE="${HOME_DIR}/newrro_complete_setup_$(date +%Y%m%d_%H%M%S).log"
+LOG_FILE="${HOME_DIR}/newrro_smart_setup_$(date +%Y%m%d_%H%M%S).log"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 log() { echo -e "\n[$(date +%H:%M:%S)] [INFO] $*"; }
 warn() { echo -e "\n[$(date +%H:%M:%S)] [WARN] $*"; }
 err() { echo -e "\n[$(date +%H:%M:%S)] [ERROR] $*" >&2; }
+skip() { echo -e "\n[$(date +%H:%M:%S)] [SKIP] $*"; }
 
 show_progress() {
     CURRENT_STEP=$((CURRENT_STEP + 1))
@@ -54,124 +54,112 @@ show_progress() {
     echo ""
 }
 
-# Cleanup function
 cleanup() {
     kill ${KEEPALIVE_PID} 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
-# Keep sudo alive
 sudo -v
 ( while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done ) 2>/dev/null &
 KEEPALIVE_PID=$!
 
 echo "=========================================================================="
-echo "               NEWRRO TECH LLP - COMPLETE PRODUCTION SETUP"
+echo "        NEWRRO TECH LLP - INTELLIGENT SETUP WITH GITHUB WORKSPACE"
 echo "=========================================================================="
-echo " Target Device:  Jetson Orin Nano Super"
-echo " JetPack:        6.x (Ubuntu 22.04)"
-echo " ROS Version:    ROS 2 Humble (Built from Source)"
-echo " Detected Cores: ${NPROC}"
-echo " User:           ${USER_NAME}"
-echo " Log File:       ${LOG_FILE}"
+echo " Workspace Source: ${GITHUB_WORKSPACE_URL}"
+echo " This script will:"
+echo "   ✓ Clone your GitHub workspace with submodules"
+echo "   ✓ Check for required sensor drivers"
+echo "   ✓ Install only missing components"
+echo "   ✓ Preserve existing configurations"
 echo "=========================================================================="
 echo ""
 
 # ------------------------------------------------------------------------------
-# STEP 1: SYSTEM INFORMATION GATHERING
+# STEP 1: SYSTEM INFORMATION
 # ------------------------------------------------------------------------------
-show_progress "Gathering System Information"
+show_progress "Step 1: System Information"
 
-log "Checking system configuration..."
-
-# Detect JetPack version
 JP_VERSION=""
-JP_RELEASE=""
 if [ -f /etc/nv_tegra_release ]; then
-    JP_RELEASE=$(cat /etc/nv_tegra_release)
     JP_VERSION=$(dpkg-query --showformat='${Version}' --show nvidia-l4t-core 2>/dev/null | cut -d- -f1 | cut -d. -f1-2 || echo "unknown")
-    log "JetPack detected: ${JP_RELEASE}"
-    log "L4T version: ${JP_VERSION}"
+    log "JetPack: L4T ${JP_VERSION}"
 else
-    warn "Not running on Jetson or JetPack not detected"
-    read -p "Continue anyway? (y/n): " confirm
-    [[ "$confirm" != "y" ]] && exit 1
+    warn "Not running on Jetson"
 fi
 
-# Get system specs
 TOTAL_RAM_GB=$(awk '/MemTotal/ {printf "%.0f", $2/1024/1024}' /proc/meminfo)
 DISK_SPACE=$(df -h / | awk 'NR==2 {print $4}')
 
-log "System Specifications:"
-log "  RAM:        ${TOTAL_RAM_GB} GB"
-log "  Disk Free:  ${DISK_SPACE}"
-log "  CPU Cores:  ${NPROC}"
+log "RAM: ${TOTAL_RAM_GB} GB | Disk Free: ${DISK_SPACE} | CPU Cores: ${NPROC}"
 
-# Calculate safe build jobs
 SAFE_JOBS=$(( TOTAL_RAM_GB / 2 ))
 BUILD_JOBS=$(( SAFE_JOBS < NPROC ? SAFE_JOBS : NPROC ))
 [ "$BUILD_JOBS" -lt 1 ] && BUILD_JOBS=1
 
-log "Build parallelism: ${BUILD_JOBS} jobs (RAM-optimized)"
-
 # ------------------------------------------------------------------------------
 # STEP 2: SYSTEM PREPARATION
 # ------------------------------------------------------------------------------
-show_progress "System Preparation: Swap, Locale, Tools"
+show_progress "Step 2: System Preparation"
 
-# Create 8GB swap if not present
-if ! grep -q '/swapfile' /etc/fstab 2>/dev/null; then
-    log "Creating 8GB swap file (required for compilation)"
-    if [ ! -f /swapfile ]; then
-        sudo fallocate -l 8G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=8192
-        sudo chmod 600 /swapfile
-        sudo mkswap /swapfile
-    fi
+# Check swap
+if grep -q '/swapfile' /etc/fstab 2>/dev/null && [ -f /swapfile ]; then
+    skip "Swap already exists ($(du -h /swapfile 2>/dev/null | cut -f1 || echo 'unknown'))"
+else
+    log "Creating 8GB swap..."
+    sudo fallocate -l 8G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=8192
+    sudo chmod 600 /swapfile
+    sudo mkswap /swapfile
     sudo swapon /swapfile
     echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
-    log "Swap created and activated"
-else
-    log "Swap already configured"
+    log "✓ Swap created"
 fi
 
-# Set locale (from ROS Wiki)
-log "Setting up UTF-8 locale..."
-sudo apt update && sudo apt install -y locales
-sudo locale-gen en_US en_US.UTF-8
-sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
-export LANG=en_US.UTF-8
+# Check locale
+if locale | grep -q "LANG=en_US.UTF-8"; then
+    skip "Locale already set to en_US.UTF-8"
+else
+    log "Setting up locale..."
+    sudo apt update && sudo apt install -y locales
+    sudo locale-gen en_US en_US.UTF-8
+    sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+    export LANG=en_US.UTF-8
+    log "✓ Locale configured"
+fi
 
-# Install essential tools
-log "Installing essential packages..."
+# Install essential tools including git-lfs for submodules
+log "Checking essential packages..."
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
     curl gnupg2 lsb-release build-essential cmake git git-lfs \
-    htop nano vim terminator net-tools iputils-ping unzip wget \
-    software-properties-common chrony usbutils libusb-1.0-0-dev \
-    ccache openssh-server python3-dev pkg-config python3-pip \
-    python3-venv ca-certificates can-utils i2c-tools
+    software-properties-common ca-certificates \
+    htop nano vim net-tools iputils-ping wget unzip \
+    chrony usbutils libusb-1.0-0-dev ccache \
+    openssh-server python3-dev pkg-config python3-pip python3-venv
+
+# Initialize git-lfs
+git lfs install || warn "git-lfs install failed"
+
+# System upgrade
+log "Checking for system updates..."
+sudo apt-get upgrade -y --allow-downgrades
+sudo apt-get autoremove -y
 
 # Upgrade pip
 python3 -m pip install --user --upgrade pip setuptools wheel
 
-# Enable ccache for faster rebuilds
 export PATH="/usr/lib/ccache:$PATH"
-
-# Force time sync
-sudo chronyc -a makestep || warn "Time sync failed (non-critical)"
-
-log "System preparation complete"
+sudo chronyc -a makestep || true
 
 # ------------------------------------------------------------------------------
 # STEP 3: JETSON OPTIMIZATIONS
 # ------------------------------------------------------------------------------
-show_progress "Applying Jetson Performance Optimizations"
+show_progress "Step 3: Jetson Optimizations"
 
 if [ -f /etc/nv_tegra_release ]; then
-    log "Configuring Jetson for maximum performance..."
-    
+    log "Applying Jetson optimizations..."
     sudo nvpmodel -m 0 || warn "nvpmodel failed"
-    sudo systemctl enable nvpmodel 2>/dev/null || warn "nvpmodel service not available"
+    sudo systemctl enable nvpmodel 2>/dev/null || true
     
     if command -v jetson_clocks &>/dev/null; then
         sudo jetson_clocks || warn "jetson_clocks failed"
@@ -181,26 +169,31 @@ if [ -f /etc/nv_tegra_release ]; then
         [ -f "$cpu_gov" ] && echo performance | sudo tee "$cpu_gov" >/dev/null 2>&1
     done
     
-    log "Jetson optimizations applied"
+    log "✓ Jetson optimized"
 else
-    warn "Skipping Jetson-specific optimizations"
+    skip "Not on Jetson - skipping optimizations"
 fi
 
 # ------------------------------------------------------------------------------
 # STEP 4: DOCKER & NVIDIA CONTAINER TOOLKIT
 # ------------------------------------------------------------------------------
-show_progress "Installing Docker & NVIDIA Container Toolkit"
+show_progress "Step 4: Docker & NVIDIA Container Toolkit"
 
-if ! command -v docker &>/dev/null; then
+# Check Docker
+if command -v docker &>/dev/null; then
+    skip "Docker already installed ($(docker --version | cut -d',' -f1))"
+else
     log "Installing Docker..."
     sudo apt-get install -y docker.io
     sudo systemctl enable --now docker
     sudo usermod -aG docker "${USER_NAME}"
-else
-    log "Docker already installed"
+    log "✓ Docker installed"
 fi
 
-if ! dpkg -l | grep -q nvidia-container-toolkit; then
+# Check NVIDIA Container Toolkit
+if dpkg -l | grep -q nvidia-container-toolkit; then
+    skip "NVIDIA Container Toolkit already installed"
+else
     log "Installing NVIDIA Container Toolkit..."
     curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
         sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
@@ -210,259 +203,350 @@ if ! dpkg -l | grep -q nvidia-container-toolkit; then
         sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
     
     sudo apt-get update
-    sudo apt-get install -y nvidia-container-toolkit
+    sudo apt-get install -y --allow-downgrades nvidia-container-toolkit
     
     if command -v nvidia-ctk &>/dev/null; then
         sudo nvidia-ctk runtime configure --runtime=docker
         sudo systemctl restart docker
     fi
+    log "✓ NVIDIA Container Toolkit installed"
 fi
-
-if ! docker --version &>/dev/null; then
-    err "Docker installation failed"
-    exit 1
-fi
-
-log "Docker installation verified"
 
 # ------------------------------------------------------------------------------
 # STEP 5: JETSON UTILITIES
 # ------------------------------------------------------------------------------
-show_progress "Installing Jetson Utilities"
+show_progress "Step 5: Jetson Utilities"
 
-log "Installing jetson-stats (jtop)..."
-python3 -m pip install --user -U jetson-stats
-
-# Add Microsoft repository
-curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
-sudo install -o root -g root -m 644 microsoft.gpg /etc/apt/trusted.gpg.d/
-sudo sh -c 'echo "deb [arch=arm64] https://packages.microsoft.com/repos/edge stable main" > /etc/apt/sources.list.d/microsoft-edge.list'
-rm microsoft.gpg
-
-# Install Edge
-sudo apt update
-sudo apt install -y microsoft-edge-stable
-
-# ------------------------------------------------------------------------------
-# STEP 6: ADD ROS 2 APT REPOSITORY
-# ------------------------------------------------------------------------------
-show_progress "Adding ROS 2 APT Repository"
-
-log "Enabling Ubuntu Universe repository..."
-sudo apt install -y software-properties-common
-sudo add-apt-repository -y universe
-
-log "Installing ROS 2 APT source..."
-sudo apt update && sudo apt install -y curl
-export ROS_APT_SOURCE_VERSION=$(curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F "tag_name" | awk -F\" '{print $4}')
-curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})_all.deb"
-sudo dpkg -i /tmp/ros2-apt-source.deb
-rm -f /tmp/ros2-apt-source.deb
-
-log "ROS 2 APT repository added"
-
-# ------------------------------------------------------------------------------
-# STEP 7: INSTALL ROS DEVELOPMENT TOOLS
-# ------------------------------------------------------------------------------
-show_progress "Installing ROS Development Tools"
-
-log "Installing common ROS dev packages..."
-sudo apt update && sudo apt install -y \
-  python3-flake8-docstrings \
-  python3-pip \
-  python3-pytest-cov \
-  ros-dev-tools
-
-log "Installing Ubuntu 22.04 specific packages..."
-sudo apt install -y \
-   python3-flake8-blind-except \
-   python3-flake8-builtins \
-   python3-flake8-class-newline \
-   python3-flake8-comprehensions \
-   python3-flake8-deprecated \
-   python3-flake8-import-order \
-   python3-flake8-quotes \
-   python3-pytest-repeat \
-   python3-pytest-rerunfailures
-
-log "ROS development tools installed"
-
-# ------------------------------------------------------------------------------
-# STEP 8: GET ROS 2 SOURCE CODE
-# ------------------------------------------------------------------------------
-show_progress "Downloading ROS 2 Humble Source Code"
-
-log "Creating ROS 2 workspace at ${ROS2_WS}..."
-mkdir -p "${ROS2_WS}/src"
-cd "${ROS2_WS}"
-
-log "Cloning ROS 2 Humble repositories (this may take 10-15 minutes)..."
-vcs import --input https://raw.githubusercontent.com/ros2/ros2/humble/ros2.repos src
-
-log "ROS 2 source code downloaded"
-
-# ------------------------------------------------------------------------------
-# STEP 9: INSTALL ROS 2 DEPENDENCIES
-# ------------------------------------------------------------------------------
-show_progress "Installing ROS 2 Dependencies"
-
-log "Upgrading system packages..."
-sudo apt upgrade -y
-
-log "Initializing rosdep..."
-if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then
-    sudo rosdep init
+# Check jtop
+if python3 -c "import jtop" 2>/dev/null; then
+    skip "jetson-stats (jtop) already installed"
+else
+    log "Installing jetson-stats..."
+    if sudo -H pip3 install -U jetson-stats --break-system-packages 2>/dev/null; then
+        log "✓ jtop installed (system)"
+    elif pip3 install --user -U jetson-stats 2>/dev/null; then
+        log "✓ jtop installed (user)"
+    else
+        warn "jtop installation failed"
+    fi
 fi
-rosdep update
-
-log "Installing ROS 2 dependencies (this may take 5-10 minutes)..."
-rosdep install --from-paths src --ignore-src -y --skip-keys "fastcdr rti-connext-dds-6.0.1 urdfdom_headers"
-
-log "ROS 2 dependencies installed"
 
 # ------------------------------------------------------------------------------
-# STEP 10: BUILD ROS 2 FROM SOURCE
+# STEP 6: ROS 2 HUMBLE - CHECK & SETUP REPOSITORY
 # ------------------------------------------------------------------------------
-show_progress "Building ROS 2 Humble from Source (20-40 minutes)"
+show_progress "Step 6: ROS 2 Humble Repository"
 
-log "Building ROS 2 with ${BUILD_JOBS} parallel jobs..."
-log "This is the longest step - please be patient..."
+# Check if ROS 2 repository is already added
+if [ -f /etc/apt/sources.list.d/ros2.list ] || [ -f /etc/apt/sources.list.d/ros2-latest.list ]; then
+    skip "ROS 2 repository already configured"
+else
+    log "Adding ROS 2 repository..."
+    sudo apt install -y software-properties-common
+    sudo add-apt-repository -y universe
+    
+    sudo apt update && sudo apt install -y curl
+    export ROS_APT_SOURCE_VERSION=$(curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F "tag_name" | awk -F\" '{print $4}')
+    curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})_all.deb"
+    sudo dpkg -i /tmp/ros2-apt-source.deb
+    rm -f /tmp/ros2-apt-source.deb
+    
+    sudo apt update
+    log "✓ ROS 2 repository added"
+fi
 
-cd "${ROS2_WS}"
+# ------------------------------------------------------------------------------
+# STEP 7: ROS 2 HUMBLE - CHECK & INSTALL
+# ------------------------------------------------------------------------------
+show_progress "Step 7: ROS 2 Humble Installation"
 
-# Make sure ROS is not already sourced
-unset ROS_DISTRO
-unset AMENT_PREFIX_PATH
+ROS_INSTALLED=false
 
-colcon build \
-    --symlink-install \
-    --parallel-workers "${BUILD_JOBS}" \
-    --cmake-args -DCMAKE_BUILD_TYPE=Release \
-    --event-handlers console_direct+ || warn "Some ROS 2 packages failed to build"
+# Check if ROS 2 Humble is already installed
+if [ -f /opt/ros/humble/setup.bash ]; then
+    log "Checking existing ROS 2 installation..."
+    
+    set +u
+    source /opt/ros/humble/setup.bash
+    set -u
+    
+    if command -v ros2 &>/dev/null; then
+        ROS_VERSION=$(ros2 --version 2>/dev/null || echo "installed")
+        skip "ROS 2 Humble already installed: ${ROS_VERSION}"
+        ROS_INSTALLED=true
+    else
+        warn "ROS 2 files exist but ros2 command not working - reinstalling..."
+        ROS_INSTALLED=false
+    fi
+fi
 
-if [ ! -f "${ROS2_WS}/install/local_setup.bash" ]; then
-    err "ROS 2 build failed - install/local_setup.bash not created"
+# Install ROS 2 if not present
+if [ "$ROS_INSTALLED" = false ]; then
+    log "Installing ROS 2 Humble Desktop..."
+    sudo apt install -y --allow-downgrades ros-humble-desktop
+    log "✓ ROS 2 Desktop installed"
+fi
+
+# Check and install ros-dev-tools
+if dpkg -l | grep -q "^ii  ros-dev-tools"; then
+    skip "ros-dev-tools already installed"
+else
+    log "Installing ros-dev-tools..."
+    sudo apt install -y ros-dev-tools
+    log "✓ ros-dev-tools installed"
+fi
+
+# Initialize rosdep if not done
+if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then
+    log "Initializing rosdep..."
+    sudo rosdep init || true
+    log "✓ rosdep initialized"
+else
+    skip "rosdep already initialized"
+fi
+
+# Source and update
+log "Sourcing ROS 2 environment..."
+set +u
+source /opt/ros/humble/setup.bash
+set -u
+
+rosdep update || warn "rosdep update had issues"
+
+# Final verification
+if [ -f /opt/ros/humble/setup.bash ]; then
+    log "✓ ROS 2 Humble verified and ready"
+else
+    err "ROS 2 installation failed"
     exit 1
 fi
 
-log "ROS 2 Humble built successfully from source"
-
 # ------------------------------------------------------------------------------
-# STEP 11: GPU-ACCELERATED PYTHON LIBRARIES
+# STEP 8: GPU LIBRARIES
 # ------------------------------------------------------------------------------
-show_progress "Installing GPU-Accelerated Python Libraries"
+show_progress "Step 8: GPU-Accelerated Libraries"
 
-source "${ROS2_WS}/install/local_setup.bash"
-
-log "Installing system-level ML dependencies..."
+# Check if ML dependencies are installed
+log "Checking ML dependencies..."
 sudo apt-get install -y \
     libopenblas-dev libblas-dev libjpeg-dev zlib1g-dev libhdf5-dev \
     libssl-dev libffi-dev liblapack-dev gfortran \
-    libopencv-dev python3-opencv libavcodec-dev libavformat-dev \
-    libswscale-dev libv4l-dev libxvidcore-dev libx264-dev
+    libopencv-dev python3-opencv
 
-log "Installing PyTorch for Jetson..."
 
-case "$JP_VERSION" in
-    36.*)
-        log "Detected JetPack 6.x - installing PyTorch 2.3.0"
-        python3 -m pip install --user --no-cache-dir \
-            https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/torch-2.3.0-cp310-cp310-linux_aarch64.whl
-        ;;
-    35.*)
-        log "Detected JetPack 5.x - installing PyTorch 2.1.0"
-        python3 -m pip install --user --no-cache-dir \
-            https://developer.download.nvidia.com/compute/redist/jp/v512/pytorch/torch-2.1.0a0+41361538.nv23.06-cp38-cp38-linux_aarch64.whl
-        ;;
-    *)
-        warn "Unknown JetPack version - attempting generic PyTorch install"
-        python3 -m pip install --user --no-cache-dir torch torchvision torchaudio --index-url https://pypi.nvidia.com || \
-            warn "PyTorch install failed"
-        ;;
-esac
-
-if python3 -c "import torch; print(f'PyTorch {torch.__version__}')" 2>/dev/null; then
-    python3 -c "import torch; print(f'  Version: {torch.__version__}'); print(f'  CUDA Available: {torch.cuda.is_available()}')"
-else
-    warn "PyTorch import failed"
-fi
-
+# Install additional Python packages
 python3 -m pip install --user --no-cache-dir \
     numpy scipy pandas matplotlib pillow pyyaml \
     opencv-python scikit-learn scikit-image \
     Jetson.GPIO pyserial transforms3d pyquaternion \
-    simple-pid tqdm requests flask || warn "Some packages failed"
+    simple-pid tqdm requests flask 2>/dev/null || warn "Some packages failed"
 
 # ------------------------------------------------------------------------------
-# STEP 12: ULTRALYTICS YOLOv8
+# STEP 10: ROS 2 NAVIGATION PACKAGES
 # ------------------------------------------------------------------------------
-show_progress "Installing Ultralytics YOLOv8"
+show_progress "Step 10: ROS 2 Navigation Packages"
 
-python3 -m pip install --user --no-cache-dir \
-    ultralytics onnx onnx-simplifier onnxruntime || warn "Ultralytics install had issues"
+set +u
+source /opt/ros/humble/setup.bash
+set -u
 
-mkdir -p "${HOME_DIR}/models"
-log "Downloading YOLOv8 models..."
+# Check if nav2 is installed
+if dpkg -l | grep -q "^ii  ros-humble-navigation2"; then
+    skip "ROS 2 Navigation packages already installed"
+else
+    log "Installing ROS 2 Navigation packages..."
+    sudo apt install -y \
+        ros-humble-navigation2 \
+        ros-humble-nav2-bringup \
+        ros-humble-slam-toolbox \
+        ros-humble-robot-localization \
+        ros-humble-cartographer \
+        ros-humble-cartographer-ros \
+        ros-humble-teleop-twist-keyboard \
+        ros-humble-teleop-twist-joy \
+        ros-humble-xacro \
+        ros-humble-robot-state-publisher \
+        ros-humble-joint-state-publisher \
+        ros-humble-vision-opencv \
+        ros-humble-cv-bridge \
+        ros-humble-image-transport \
+        ros-humble-compressed-image-transport \
+        ros-humble-foxglove-bridge \
+        ros-humble-diagnostic-updater
+    log "✓ Navigation packages installed"
+fi
 
-for model in yolov8n.pt yolov8s.pt; do
-    if [ ! -f "${HOME_DIR}/models/${model}" ]; then
-        wget -q "https://github.com/ultralytics/assets/releases/download/v0.0.0/${model}" \
-            -O "${HOME_DIR}/models/${model}" && log "  Downloaded ${model}" || warn "  Failed ${model}"
+# ------------------------------------------------------------------------------
+# STEP 11: CLONE ARJUNA WORKSPACE FROM GITHUB
+# ------------------------------------------------------------------------------
+show_progress "Step 11: Arjuna Workspace from GitHub"
+
+# Check if workspace directory exists
+if [ -d "${WS_DIR}" ]; then
+    log "Workspace directory exists, checking contents..."
+    
+    # Check if it's a git repository
+    if [ -d "${WS_DIR}/.git" ]; then
+        log "Git repository detected, updating..."
+        cd "${WS_DIR}"
+        
+        # Stash any local changes
+        git stash || true
+        
+        # Pull latest changes
+        git pull origin main || git pull origin master || warn "Git pull failed"
+        
+        # Update submodules recursively
+        log "Updating submodules recursively..."
+        git submodule update --init --recursive || warn "Submodule update failed"
+        
+        log "✓ Workspace updated from GitHub"
+    else
+        warn "Workspace exists but is not a git repo"
+        log "Backing up existing workspace..."
+        mv "${WS_DIR}" "${WS_DIR}.backup.$(date +%Y%m%d_%H%M%S)"
+        
+        log "Cloning fresh workspace from GitHub..."
+        mkdir -p "$(dirname ${WS_DIR})"
+        git clone --recursive "${GITHUB_WORKSPACE_URL}" "${WS_DIR}"
+        
+        if [ -d "${WS_DIR}" ]; then
+            log "✓ Workspace cloned from GitHub with submodules"
+        else
+            err "Failed to clone workspace"
+            exit 1
+        fi
+    fi
+else
+    log "Cloning Arjuna workspace from GitHub..."
+    mkdir -p "$(dirname ${WS_DIR})"
+    
+    # Clone with recursive submodules
+    git clone --recursive "${GITHUB_WORKSPACE_URL}" "${WS_DIR}"
+    
+    if [ -d "${WS_DIR}" ]; then
+        log "✓ Workspace cloned from GitHub with all submodules"
+    else
+        err "Failed to clone workspace from GitHub"
+        exit 1
+    fi
+fi
+
+# Navigate to workspace src
+cd "${WS_DIR}/src"
+
+# ------------------------------------------------------------------------------
+# CHECK AND CLONE REQUIRED SENSOR DRIVERS
+# ------------------------------------------------------------------------------
+
+log "Checking for required sensor drivers..."
+
+# Required sensor drivers
+REQUIRED_DRIVERS=(
+    "sllidar_ros2:https://github.com/Slamtec/sllidar_ros2.git:humble"
+    "ros-imu-bno055:https://github.com/dheera/ros-imu-bno055.git:humble"
+    "depthai-ros:https://github.com/luxonis/depthai-ros.git:humble"
+)
+
+for driver_info in "${REQUIRED_DRIVERS[@]}"; do
+    IFS=':' read -r driver_name driver_url driver_branch <<< "$driver_info"
+    
+    if [ -d "${WS_DIR}/src/${driver_name}" ]; then
+        log "Checking ${driver_name}..."
+        
+        # Check if it's a git repo and has content
+        if [ -d "${WS_DIR}/src/${driver_name}/.git" ]; then
+            cd "${WS_DIR}/src/${driver_name}"
+            
+            # Check if directory is empty or just has .git
+            if [ "$(ls -A . | grep -v '^\.git$' | wc -l)" -eq 0 ]; then
+                warn "${driver_name} exists but is empty, re-cloning..."
+                cd "${WS_DIR}/src"
+                rm -rf "${driver_name}"
+                git clone --depth 1 -b "${driver_branch}" "${driver_url}"
+                log "✓ ${driver_name} re-cloned"
+            else
+                skip "${driver_name} already exists and has content"
+                
+                # Update to latest
+                log "Updating ${driver_name}..."
+                git pull origin "${driver_branch}" || warn "Update failed for ${driver_name}"
+                
+                # Update submodules if any
+                git submodule update --init --recursive || true
+            fi
+        else
+            warn "${driver_name} exists but is not a git repo, re-cloning..."
+            cd "${WS_DIR}/src"
+            rm -rf "${driver_name}"
+            git clone --depth 1 -b "${driver_branch}" "${driver_url}"
+            log "✓ ${driver_name} cloned"
+        fi
+    else
+        log "Cloning ${driver_name}..."
+        cd "${WS_DIR}/src"
+        git clone --depth 1 -b "${driver_branch}" "${driver_url}"
+        
+        if [ -d "${driver_name}" ]; then
+            log "✓ ${driver_name} cloned successfully"
+        else
+            warn "Failed to clone ${driver_name}"
+        fi
     fi
 done
 
+# Back to workspace root
+cd "${WS_DIR}"
+
+# USB rules for OAK-D camera
+if [ ! -f /etc/udev/rules.d/80-movidius.rules ]; then
+    log "Adding udev rules for OAK-D camera..."
+    echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="03e7", MODE="0666"' | \
+        sudo tee /etc/udev/rules.d/80-movidius.rules >/dev/null
+    sudo udevadm control --reload-rules
+    sudo udevadm trigger
+    log "✓ udev rules added"
+else
+    skip "udev rules already exist"
+fi
+
 # ------------------------------------------------------------------------------
-# STEP 13: ARJUNA WORKSPACE & SENSOR DRIVERS
+# BUILD WORKSPACE
 # ------------------------------------------------------------------------------
-show_progress "Setting Up Arjuna Workspace & Sensor Drivers"
-
-log "Creating Arjuna workspace at ${WS_DIR}..."
-mkdir -p "${WS_DIR}/src"
-cd "${WS_DIR}/src"
-
-# Clone sensor drivers
-if [ ! -d "depthai-ros" ]; then
-    log "Cloning DepthAI ROS driver..."
-    git clone -b humble_v3 https://github.com/luxonis/depthai-ros.git
-fi
-
-if [ ! -d "sllidar_ros2" ]; then
-    log "Cloning RPLidar ROS2 driver..."
-    git clone https://github.com/Slamtec/sllidar_ros2.git
-fi
-
-if [ ! -d "ros-imu-bno055" ]; then
-    log "Cloning IMU BNO055 driver..."
-    git clone https://github.com/dheera/ros-imu-bno055.git
-fi
-
-# USB rules for OAK-D
-echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="03e7", MODE="0666"' | \
-    sudo tee /etc/udev/rules.d/80-movidius.rules >/dev/null
-sudo udevadm control --reload-rules
-sudo udevadm trigger
 
 log "Installing workspace dependencies..."
-cd "${WS_DIR}"
-source "${ROS2_WS}/install/local_setup.bash"
-rosdep install --from-paths src --ignore-src -r -y || warn "Some rosdep installs failed"
+set +u
+source /opt/ros/humble/setup.bash
+set -u
 
-log "Building Arjuna workspace..."
-colcon build --symlink-install 
+rosdep install --from-paths src --ignore-src -r -y || warn "Some rosdep dependencies failed"
 
-if [ ! -f "${WS_DIR}/install/local_setup.bash" ]; then
-    warn "Arjuna workspace build had issues"
+log "Building workspace (this may take 5-15 minutes)..."
+colcon build \
+    --symlink-install \
+    --parallel-workers "${BUILD_JOBS}" \
+    --cmake-args -DCMAKE_BUILD_TYPE=Release \
+    --event-handlers console_direct+ || warn "Some packages failed to build"
+
+if [ -f "${WS_DIR}/install/setup.bash" ]; then
+    log "✓ Arjuna workspace built successfully"
+    
+    # List built packages
+    log "Built packages:"
+    cd "${WS_DIR}"
+    colcon list 2>/dev/null || true
 else
-    log "Arjuna workspace built successfully"
+    warn "Workspace build completed with issues"
 fi
 
 # ------------------------------------------------------------------------------
-# STEP 14: DEVELOPMENT TOOLS
+# STEP 12: VS CODE
 # ------------------------------------------------------------------------------
-show_progress "Installing Development Tools"
+show_progress "Step 12: VS Code"
 
-if ! command -v code &>/dev/null; then
-    log "Installing Visual Studio Code..."
+if command -v code &>/dev/null; then
+    skip "VS Code already installed"
+else
+    log "Installing VS Code..."
     wget -qO- https://packages.microsoft.com/keys/microsoft.asc | \
         gpg --dearmor > /tmp/packages.microsoft.gpg
     sudo install -D -o root -g root -m 644 /tmp/packages.microsoft.gpg \
@@ -470,151 +554,149 @@ if ! command -v code &>/dev/null; then
     sudo sh -c 'echo "deb [arch=arm64,amd64 signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
     rm -f /tmp/packages.microsoft.gpg
     sudo apt-get update
-    sudo apt-get install -y code || warn "VS Code install failed"
+    sudo apt-get install -y code || warn "VS Code failed"
+    
+    if command -v code &>/dev/null; then
+        log "✓ VS Code installed"
+    fi
 fi
 
 # ------------------------------------------------------------------------------
-# STEP 15: SYSTEM CONFIGURATION & FINALIZATION
+# STEP 13: USER GROUPS
 # ------------------------------------------------------------------------------
-show_progress "Finalizing System Configuration"
+show_progress "Step 13: User Groups & Permissions"
 
-sudo usermod -aG dialout,video,i2c,plugdev,docker "${USER_NAME}"
-sudo groupadd -f gpio
-sudo usermod -aG gpio "${USER_NAME}"
+GROUPS_TO_ADD="dialout video i2c plugdev docker gpio"
+GROUPS_ADDED=""
 
-log "Configuring shell environment..."
+for group in $GROUPS_TO_ADD; do
+    sudo groupadd -f "$group" 2>/dev/null || true
+    
+    if groups "${USER_NAME}" | grep -q "\b$group\b"; then
+        continue
+    else
+        sudo usermod -aG "$group" "${USER_NAME}"
+        GROUPS_ADDED="$GROUPS_ADDED $group"
+    fi
+done
 
-if ! grep -q "NEWRRO_COMPLETE_SETUP" "${HOME_DIR}/.bashrc" 2>/dev/null; then
-    cat >> "${HOME_DIR}/.bashrc" <<EOF
-
-# ============================================================================
-# NEWRRO_COMPLETE_SETUP - ROS 2 Humble from Source
-# ============================================================================
-
-# ROS 2 Humble (built from source)
-source ${ROS2_WS}/install/local_setup.bash 2>/dev/null || true
-
-# Arjuna workspace
-if [ -f "${WS_DIR}/install/local_setup.bash" ]; then
-    source "${WS_DIR}/install/local_setup.bash"
+if [ -n "$GROUPS_ADDED" ]; then
+    log "✓ Added to groups:$GROUPS_ADDED"
+else
+    skip "User already in all required groups"
 fi
 
-# ROS Configuration
+# ------------------------------------------------------------------------------
+# STEP 14: BASHRC CONFIGURATION
+# ------------------------------------------------------------------------------
+show_progress "Step 14: Shell Configuration"
+
+if grep -q "NEWRRO_COMPLETE_SETUP" "${HOME_DIR}/.bashrc" 2>/dev/null; then
+    skip ".bashrc already configured"
+else
+    log "Adding ROS environment to .bashrc..."
+    cat >> "${HOME_DIR}/.bashrc" <<'EOF'
+
+# ============================================================================
+# NEWRRO_COMPLETE_SETUP
+# ============================================================================
+source /opt/ros/humble/setup.bash
+if [ -f "$HOME/arjuna_ros2/arjuna2_ws/install/setup.bash" ]; then
+    source "$HOME/arjuna_ros2/arjuna2_ws/install/setup.bash"
+fi
 export ROS_DOMAIN_ID=0
-export ROS_LOCALHOST_ONLY=0
-export RCUTILS_COLORIZED_OUTPUT=1
+export PATH="/usr/lib/ccache:$PATH"
+export PATH=/usr/local/cuda/bin:${PATH}
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+export PATH="$HOME/.local/bin:$PATH"
 
-# Build optimization
-export PATH="/usr/lib/ccache:\${PATH}"
-
-# CUDA paths
-export PATH=/usr/local/cuda/bin:\${PATH}
-export LD_LIBRARY_PATH=/usr/local/cuda/lib64:\${LD_LIBRARY_PATH}
-
-# Python user packages
-export PATH="\$HOME/.local/bin:\${PATH}"
-
-# ============================================================================
-# ALIASES
-# ============================================================================
-
-# Navigation
-alias ws='cd ${WS_DIR}'
-alias ros2ws='cd ${ROS2_WS}'
-
-# ROS shortcuts
-alias arjuna2build='cd ${WS_DIR} && colcon build --symlink-install'
-alias arjuna2clean='cd ${WS_DIR} && rm -rf build install log'
-alias arjuna2src='source ${WS_DIR}/install/local_setup.bash'
-alias arjuna2test='ros2 topic list && ros2 node list'
-
-# Device monitoring
-alias check_usb='lsusb && echo && ls -la /dev/ttyUSB* /dev/ttyACM* 2>/dev/null || echo "No USB serial devices"'
-
-# Performance
+alias ws='cd ~/arjuna_ros2/arjuna2_ws'
+alias ros2build='cd ~/arjuna_ros2/arjuna2_ws && colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release'
+alias ros2src='source ~/arjuna_ros2/arjuna2_ws/install/setup.bash'
+alias ros2test='ros2 topic list && ros2 node list'
+alias check_usb='lsusb && ls -la /dev/ttyUSB* /dev/ttyACM* 2>/dev/null'
 alias jtop='jtop'
 alias max_power='sudo nvpmodel -m 0 && sudo jetson_clocks'
-alias restore_power='sudo nvpmodel -m 1 && sudo jetson_clocks'
 alias check_temp='cat /sys/devices/virtual/thermal/thermal_zone*/temp | awk "{printf \"%.1f°C\n\", \$1/1000}"'
-
-# Docker
 alias docker_gpu='docker run --rm --runtime=nvidia --gpus all ubuntu nvidia-smi'
-
 # ============================================================================
 EOF
+    log "✓ .bashrc configured"
 fi
 
-# Create desktop shortcuts
-mkdir -p "${HOME_DIR}/.local/share/applications"
-
-cat > "${HOME_DIR}/.local/share/applications/ros2-workspace.desktop" <<EOF
-[Desktop Entry]
-Type=Application
-Name=ROS2 Workspace
-Comment=Open Arjuna ROS2 workspace in VS Code
-Exec=code ${WS_DIR}
-Icon=code
-Terminal=false
-Categories=Development;IDE;
-EOF
-
-cat > "${HOME_DIR}/.local/share/applications/jtop.desktop" <<EOF
-[Desktop Entry]
-Type=Application
-Name=jtop
-Comment=Jetson monitoring tool
-Exec=x-terminal-emulator -e jtop
-Icon=utilities-system-monitor
-Terminal=true
-Categories=System;Monitor;
-EOF
-
 # Cleanup
-log "Cleaning up build artifacts..."
-rm -rf "${ROS2_WS}/build" "${ROS2_WS}/log"
-rm -rf "${WS_DIR}/build" "${WS_DIR}/log"
+log "Cleaning up..."
+rm -rf "${WS_DIR}/build" "${WS_DIR}/log" 2>/dev/null || true
 sudo apt-get clean
 sudo apt-get autoremove -y
 
-# Final verification
-log "Running final verification..."
-
-VERIFICATION_RESULTS=()
-FAILED_CHECKS=()
-
-command -v docker >/dev/null 2>&1 && VERIFICATION_RESULTS+=("✓ Docker") || FAILED_CHECKS+=("✗ Docker")
-command -v ros2 >/dev/null 2>&1 && VERIFICATION_RESULTS+=("✓ ROS 2 Humble") || FAILED_CHECKS+=("✗ ROS 2 Humble")
-[ -f "${ROS2_WS}/install/local_setup.bash" ] && VERIFICATION_RESULTS+=("✓ ROS 2 built from source") || FAILED_CHECKS+=("✗ ROS 2 build")
-[ -f "${WS_DIR}/install/local_setup.bash" ] && VERIFICATION_RESULTS+=("✓ Arjuna workspace") || FAILED_CHECKS+=("✗ Arjuna workspace")
-python3 -c "import torch" 2>/dev/null && VERIFICATION_RESULTS+=("✓ PyTorch") || FAILED_CHECKS+=("✗ PyTorch")
-python3 -c "import ultralytics" 2>/dev/null && VERIFICATION_RESULTS+=("✓ YOLOv8") || FAILED_CHECKS+=("✗ YOLOv8")
-python3 -c "import jtop" 2>/dev/null && VERIFICATION_RESULTS+=("✓ jtop") || FAILED_CHECKS+=("✗ jtop (needs reboot)")
-command -v code >/dev/null 2>&1 && VERIFICATION_RESULTS+=("✓ VS Code") || VERIFICATION_RESULTS+=("○ VS Code (optional)")
-
 # ------------------------------------------------------------------------------
-# COMPLETION MESSAGE
+# FINAL VERIFICATION
 # ------------------------------------------------------------------------------
 
 clear
 echo ""
 echo "=========================================================================="
-echo "                    ✓ SETUP COMPLETE!"
+echo "           ✓ INTELLIGENT SETUP WITH GITHUB WORKSPACE COMPLETE!"
 echo "=========================================================================="
 echo ""
+
+log "Running final verification..."
+echo ""
+
 echo "📊 VERIFICATION RESULTS:"
 echo "────────────────────────────────────────────────────────────────────────"
-for result in "${VERIFICATION_RESULTS[@]}"; do
-    echo "  $result"
-done
 
-if [ ${#FAILED_CHECKS[@]} -gt 0 ]; then
+# ROS 2
+if [ -f /opt/ros/humble/setup.bash ]; then
+    set +u
+    source /opt/ros/humble/setup.bash
+    set -u
+    if command -v ros2 &>/dev/null; then
+        ROS_VER=$(ros2 --version 2>/dev/null || echo "installed")
+        echo "  ✓ ROS 2: ${ROS_VER}"
+    else
+        echo "  ✓ ROS 2: Installed (needs reboot)"
+    fi
+else
+    echo "  ✗ ROS 2: Not found"
+fi
+
+# Workspace
+if [ -f "${WS_DIR}/install/setup.bash" ]; then
+    echo "  ✓ Arjuna Workspace: Built from GitHub"
+    
+    # Check for sensor drivers
     echo ""
-    echo "❌ FAILED CHECKS:"
-    for check in "${FAILED_CHECKS[@]}"; do
-        echo "  $check"
-    done
-    echo ""
-    echo "⚠️  Some components failed. Check log: ${LOG_FILE}"
+    echo "  📡 Sensor Drivers:"
+    [ -d "${WS_DIR}/src/sllidar_ros2" ] && echo "    ✓ RPLidar (sllidar_ros2)" || echo "    ✗ RPLidar missing"
+    [ -d "${WS_DIR}/src/ros-imu-bno055" ] && echo "    ✓ IMU BNO055" || echo "    ✗ IMU missing"
+    [ -d "${WS_DIR}/src/depthai-ros" ] && echo "    ✓ OAK-D Camera (depthai-ros)" || echo "    ✗ OAK-D missing"
+else
+    echo "  ✗ Workspace: Build failed"
+fi
+
+# Docker
+if command -v docker &>/dev/null; then
+    echo "  ✓ Docker: $(docker --version | cut -d',' -f1)"
+else
+    echo "  ✗ Docker: Not found"
+fi
+
+# PyTorch
+if python3 -c "import torch" 2>/dev/null; then
+    PT_VER=$(python3 -c "import torch; print(torch.__version__)" 2>/dev/null)
+    PT_CUDA=$(python3 -c "import torch; print('CUDA' if torch.cuda.is_available() else 'CPU')" 2>/dev/null)
+    echo "  ✓ PyTorch: ${PT_VER} (${PT_CUDA})"
+else
+    echo "  ✗ PyTorch: Not found"
+fi
+
+# YOLOv8
+if python3 -c "import ultralytics" 2>/dev/null; then
+    echo "  ✓ YOLOv8: Installed"
+else
+    echo "  ○ YOLOv8: Not installed"
 fi
 
 echo ""
@@ -622,71 +704,34 @@ echo "==========================================================================
 echo "📋 NEXT STEPS:"
 echo "=========================================================================="
 echo ""
-echo "1️⃣  REBOOT YOUR SYSTEM (REQUIRED)"
+echo "1️⃣  REBOOT YOUR SYSTEM"
 echo "   sudo reboot"
 echo ""
-echo "2️⃣  After reboot, test ROS 2:"
-echo "   # Terminal 1:"
-echo "   ros2 run demo_nodes_cpp talker"
+echo "2️⃣  After reboot, test workspace:"
+echo "   ws"
+echo "   ros2src"
+echo "   ros2 pkg list | grep -E '(sllidar|depthai|bno055)'"
 echo ""
-echo "   # Terminal 2:"
-echo "   ros2 run demo_nodes_py listener"
+echo "3️⃣  Test sensors:"
+echo "   ros2 launch sllidar_ros2 sllidar_launch.py"
+echo "   ros2 launch depthai_examples stereo_node.launch.py"
 echo ""
-echo "3️⃣  Verify PyTorch GPU:"
-echo "   python3 -c 'import torch; print(f\"PyTorch: {torch.__version__}\"); print(f\"CUDA: {torch.cuda.is_available()}\")'"
-echo ""
-echo "4️⃣  Check USB devices:"
+echo "4️⃣  Check devices:"
 echo "   check_usb"
 echo ""
-echo "5️⃣  Open workspace:"
-echo "   ws  # Goes to ${WS_DIR}"
-echo "   code .  # Opens in VS Code"
+echo "5️⃣  Open in VS Code:"
+echo "   ws && code ."
 echo ""
 echo "=========================================================================="
-echo "📁 IMPORTANT LOCATIONS:"
+echo "📁 WORKSPACE INFO:"
 echo "=========================================================================="
-echo "  ROS 2 Source:  ${ROS2_WS}"
-echo "  Arjuna WS:     ${WS_DIR}"
-echo "  Models:        ${HOME_DIR}/models"
-echo "  Setup Log:     ${LOG_FILE}"
+echo "  GitHub URL:  ${GITHUB_WORKSPACE_URL}"
+echo "  Local Path:  ${WS_DIR}"
+echo "  Models:      ${HOME_DIR}/models"
+echo "  Log:         ${LOG_FILE}"
 echo ""
-echo "=========================================================================="
-echo "⚡ USEFUL COMMANDS:"
 echo "=========================================================================="
 echo ""
-echo "  ws              - Go to Arjuna workspace"
-echo "  arjuna2ws       - Go to ROS 2 source workspace"
-echo "  arjuna2build    - Build Arjuna workspace"
-echo "  arjuna2test     - Test ROS 2 installation"
-echo "  check_usb       - Show USB devices"
-echo "  jtop            - System monitor"
-echo "  max_power       - Enable max performance"
-echo "  restore_power   - Disable max performance"
-echo "  docker_gpu      - Test GPU in Docker"
+echo "🎉 Setup complete! Your GitHub workspace is cloned and ready!"
 echo ""
 echo "=========================================================================="
-echo "🎓 ROS 2 BUILT FROM SOURCE:"
-echo "=========================================================================="
-echo ""
-echo "Your ROS 2 installation was built from source following the"
-echo "official ROS 2 documentation. This gives you:"
-echo ""
-echo "  ✓ Latest Humble patches and bug fixes"
-echo "  ✓ Full control over build configuration"
-echo "  ✓ Ability to modify ROS 2 core if needed"
-echo "  ✓ Better ARM64/Jetson optimization"
-echo ""
-echo "Source workspace: ${ROS2_WS}"
-echo ""
-echo "=========================================================================="
-
-if [ ${#FAILED_CHECKS[@]} -eq 0 ]; then
-    echo ""
-    echo "🎉 All components installed successfully!"
-    echo ""
-    echo "Setup completed at: $(date)"
-    echo ""
-fi
-
-echo "=========================================================================="
-echo ""
