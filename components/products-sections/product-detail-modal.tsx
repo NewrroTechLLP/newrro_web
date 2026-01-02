@@ -47,7 +47,7 @@ interface Product {
   id: number;
   name: string;
   category: string;
-  price: number;
+  // price: number;
   image: string;
   description: string;
   features: string[];
@@ -156,9 +156,6 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
     setView360Active((prev) => !prev);
     setIsZoomed(false);
   };
-
-  const discountPrice = (product.price * 0.90).toFixed(2);
-
   // Function to create WhatsApp order message
   const createWhatsAppOrderMessage = (isBuyNow = false) => {
     const action = isBuyNow ? "Buy Now" : "Add to Cart";
@@ -204,7 +201,7 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
         <motion.div
           className={cn(
             "relative w-full max-w-6xl max-h-[90vh] overflow-y-auto",
-            "rounded-2xl shadow-xl grid grid-cols-1 md:grid-cols-2 bg-white/90 backdrop-blur-xl"
+            "rounded-2xl shadow-xl grid grid-cols-1 md:grid-cols-2 bg-white/90 backdrop-blur-xl text-black"
           )}
           initial={{ scale: 0.95, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -214,7 +211,7 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
         >
           {/* Close Button */}
           <motion.button
-            className="absolute top-3 right-3 z-50 p-2 rounded-md bg-white/20 hover:bg-white/30 border border-white/20 shadow backdrop-blur-sm"
+            className="text-black absolute top-3 right-3 z-50 p-2 rounded-md bg-white/20 hover:bg-white/30 border border-white/20 shadow backdrop-blur-sm"
             whileHover={{ scale: 1.1, rotate: 90 }}
             whileTap={{ scale: 0.9 }}
             onClick={onClose}
@@ -241,7 +238,7 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
             >
               {product.badge && (
                 <motion.div
-                  className="absolute top-4 left-4 z-10 px-3 py-1 text-xs font-semibold text-white rounded-full bg-secondary shadow"
+                  className="absolute top-4 left-4 z-10 px-3 py-1 text-xs font-semibold text-black rounded-full bg-secondary shadow"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                 >
@@ -322,7 +319,7 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
 
               {view360Active && !product.view360Link && (
                 <motion.div
-                  className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-white bg-foreground/60 backdrop-blur-sm flex items-center gap-2"
+                  className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-black bg-foreground/60 backdrop-blur-sm flex items-center gap-2"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                 >
@@ -365,8 +362,8 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
                 className={cn(
                   "flex items-center justify-center gap-2 px-6 py-3 rounded-full text-sm font-bold transition-all duration-300 shadow-lg",
                   view360Active 
-                    ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white" 
-                    : "bg-gradient-to-r from-blue-500 to-indigo-600 text-white"
+                    ? "bg-gradient-to-r from-pink-500 to-purple-600 " 
+                    : "bg-gradient-to-r from-blue-500 to-indigo-600 "
                 )}
                 whileHover={{ scale: 1.05, y: -3, boxShadow: "0px 10px 20px rgba(0,0,0,0.2)" }}
                 whileTap={{ scale: 0.95 }}
@@ -403,12 +400,13 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
           <div className="p-6 sm:p-8 flex flex-col">
             <div className="space-y-4 sm:space-y-5">
               <motion.div
-                className="inline-flex items-center gap-2 px-3 py-1 text-xs font-semibold text-white rounded-full bg-primary shadow"
+                className="inline-flex items-center gap-2 px-3 py-1 text-xs font-semibold rounded-full bg-primary shadow"
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <Sparkles className="w-3 h-3" />
-                <span>{product.category || "PREMIUM"}</span>
+                <Sparkles className="w-3 h-3 text-black" />
+                  <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                    {product.category || "PREMIUM"}</span>
               </motion.div>
               <motion.h2
                 className="text-2xl sm:text-3xl font-bold tracking-tight text-black"
@@ -442,9 +440,7 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <span className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#df5bd3] to-[#7e5bf6] bg-clip-text text-transparent">
-                  &#8377;{product.price.toLocaleString('en-IN')}
-                </span>
+              
               </motion.div>
               <motion.p
                 className="text-sm sm:text-base leading-relaxed text-black"
@@ -481,7 +477,7 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
                       whileHover={{ scale: 1.1, y: -2 }}
                       whileTap={{ scale: 0.95 }}
                     >
-                      {selectedColor === c.name && <Check className="w-4 h-4 text-white" />}
+                      {selectedColor === c.name && <Check className="w-4 h-4 text-black" />}
                     </motion.div>
                   ))}
                 </div>
@@ -541,35 +537,44 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
                       whileHover={{ scale: 1.02, y: -4 }}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-md bg-primary text-white">
-                          <feature.icon className="w-5 h-5" />
-                        </div>
-                        <div className="space-y-1 text-black text-sm">
-                          <p className="font-semibold">{feature.title}</p>
-                          <p>{feature.description}</p>
-                        </div>
+                        {/* Gradient wrapper */}
+                        <span
+                          className="inline-flex items-center gap-2
+                                    bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600
+                                    bg-clip-text text-transparent"
+                        >
+                          <feature.icon className="w-5 h-5 stroke-current" />
+                          <p className="font-semibold text-sm">
+                            {feature.title}
+                          </p>
+                        </span>
                       </div>
+
+                      <p className="mt-1 ml-7 text-sm text-black">
+                        {feature.description}
+                      </p>
                     </motion.div>
                   ))}
                 </div>
+
               </motion.div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 mt-auto pt-6">
+            <div className="flex flex-col sm:flex-row gap-3 mt-auto pt-6 dark">
               <motion.button
-                className="relative flex-1 px-5 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-foreground text-background shadow"
+                className="bg-orange-400/80 hover:bg-orange-400/100 relative flex-1 px-5 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-foreground text-background shadow"
                 whileHover={{ scale: 1.02, y: -2 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleAddToCart}
               >
                 {isAddingToCart ? (
                   <motion.div
-                    className="absolute inset-0 flex items-center justify-center rounded-xl bg-primary"
+                    className="absolute inset-0 flex items-center justify-center rounded-xl "
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                   >
-                    <Check className="w-5 h-5 text-white" />
+                    <Check className="w-5 h-5 text-black" />
                   </motion.div>
                 ) : (
                   <>
@@ -579,7 +584,7 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
                 )}
                 {showAddedMessage && (
                   <motion.div
-                    className="absolute top-0 left-0 right-0 -translate-y-full mt-2 py-1 px-2 text-center text-xs text-white rounded-lg bg-primary"
+                    className="absolute top-0 left-0 right-0 -translate-y-full mt-2 py-1 px-2 text-center text-xs text-black rounded-lg bg-blue-500/90 shadow-lg"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
@@ -589,7 +594,7 @@ function ProductDetailModalContent({ product, onClose }: { product: Product; onC
                 )}
               </motion.button>
               <motion.button
-                className="flex-1 px-5 py-3 rounded-xl font-semibold relative overflow-hidden bg-primary text-white shadow"
+                className="flex-1 px-5 py-3 rounded-xl font-semibold relative overflow-hidden bg-primary text-black shadow bg-green-400/80 hover:bg-green-400/100"
                 whileHover={{ scale: 1.02, y: -2 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleBuyNow}

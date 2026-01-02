@@ -12,7 +12,6 @@ export interface Product {
   id: number;
   name: string;
   category: string;
-  price: number;
   image: string;
   description: string;
   features: string[];
@@ -106,11 +105,6 @@ export function ProductGrid({ products }: ProductGridProps) {
                       {product.name}
                     </CardTitle>
                     <CardDescription className="text-black">{product.category}</CardDescription>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="text-lg font-bold bg-gradient-to-r from-[#df5bd3] to-[#7e5bf6] bg-clip-text text-transparent">
-                      &#8377;{product.price.toLocaleString('en-IN')}
-                    </span>
                   </div>
                 </div>
                 <p className="text-black mb-4 line-clamp-2">{product.description}</p>
