@@ -22,7 +22,6 @@ const partners = [
 ];
 const advisors = [
   { name: "Dr. Prashanth", role: "IEEE RAS vice-chair, Bangalore & Robotics HOD, NMIT" },
-  { name: "Dr. Kiran MC", role: "Founder & Advisor" },
   { name: "Dr. Venkateshvar", role: "Ex-DRDO scientist, expert" },
   { name: "Dr. Tengli", role: "Ex-DRDO scientist, expert" }
 ];
